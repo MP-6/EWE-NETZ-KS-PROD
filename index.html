@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EWE Netz GmbH - Testseite</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        
+        header {
+            background-color: #005f96; /* EWE NETZ Blau */
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        footer {
+            background-color: #005f96; /* EWE NETZ Blau */
+            color: white;
+            padding: 10px;
+            text-align: center;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+        }
+        
+        .content {
+            margin: 20px;
+            padding: 40px;
+            background-image: url('https://www.ewe-netz.de/-/media/ewe-netz/keyvisuals/keyvisuals-header-neu/einspeiser-redispatch-2000x940.jpg?h=940&iar=0&w=2000&hash=6F65601D87248C629E7858FAF3445616'); /* Dein Bild hier */
+            background-size: cover;
+            background-position: center;
+            min-height: 100vh;
+            border-radius: 8px;
+            color: white; /* Damit der Text auf dem Bild gut lesbar ist */
+            text-align: center;
+        }
+        
+        .button {
+            background-color: #C8D200; /* EWE NETZ Grün */
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            display: inline-block;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        
+        .button:hover {
+            background-color: #00A888; /* EWE NETZ Grün 2 */
+        }
+        
+        .chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .chat-button {
+            background-color: #F59A32; /* EWE NETZ Orange */
+            color: white;
+            padding: 15px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        .chat-button:hover {
+            background-color: #F7CD00; /* EWE NETZ Gelb */
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Willkommen bei EWE Netz GmbH</h1>
+    <p>Ihr zuverlässiger Partner für Trinkwasser, Gas und Strom</p>
+</header>
+
+<div class="content">
+    <h2>Wie können wir Ihnen helfen?</h2>
+    <p>Unsere Services für Sie:</p>
+    <ul>
+        <li>Trinkwasser</li>
+        <li>Gasversorgung</li>
+        <li>Stromversorgung</li>
+    </ul>
+    <p>Wenn Sie Fragen haben, können Sie jederzeit den Chat starten.</p>
+    
+    <a href="#" class="button">Mehr Erfahren</a>
+</div>
+
+<script type="text/javascript" charset="utf-8">
+  (function (g, e, n, es, ys) {
+    g['_genesysJs'] = e;
+    g[e] = g[e] || function () {
+      (g[e].q = g[e].q || []).push(arguments)
+    };
+    g[e].t = 1 * new Date();
+    g[e].c = es;
+    ys = document.createElement('script'); ys.async = 1; ys.src = n; ys.charset = 'utf-8'; document.head.appendChild(ys);
+  })(window, 'Genesys', 'https://apps.mypurecloud.de/genesys-bootstrap/genesys.min.js', {
+    environment: 'prod-euc1',
+    deploymentId: '621e899c-71a1-4110-9943-ac0813a6972e'
+  });
+</script>
+
+
+<footer>
+    <p>&copy; 2025 EWE Netz GmbH - Alle Rechte vorbehalten</p>
+</footer>
+
+</body>
+</html>
