@@ -45,6 +45,15 @@
       <button id="btnMute">Stumm</button>
     </div>
     <div class="row">
+      <select id="sapFormat" title="Nachrichtenformat an SAP">
+        <option value="flat-string">flach / JSON-Text</option>
+        <option value="flat-object">flach / Objekt</option>
+        <option value="wrap-string">payload-Schluessel / JSON-Text</option>
+        <option value="wrap-object">payload-Schluessel / Objekt</option>
+        <option value="xml">XML</option>
+      </select>
+    </div>
+    <div class="row">
       <input id="sapTestAni" value="+4915112345678" title="Test-Rufnummer fuer die SAP-Tests">
       <button class="sap" id="btnSapNotify">SAP: Notify</button>
       <button class="sap" id="btnSapAccept">SAP: Accept</button>
@@ -70,12 +79,13 @@
   var INTERACTION_SRC = GENESYS_ORIGIN + '/crm/interaction.html';
   var DEFAULT_COUNTRY_CODE = '+49';   // fuer Nummern ohne + (z. B. 0173... -> +49173...)
   var SAP_ENABLED = true;             // Events an SAP senden (Notify/Accept/End)
-  var SAP_SEND_AS_STRING = true;      // true: JSON-String, false: Objekt
-  var SAP_WRAP_IN_PAYLOAD = false;    // true: {"payload": {...}} statt flachem JSON
+  // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml
+  // (Standard: flat-string)
   // ===========================
 
   var params = new URLSearchParams(location.search);
   var DEBUG = params.get('debug') === '1';
+  var sapFormat = params.get('sap') || 'flat-string';
   var ph = parseInt(params.get('phoneHeight'), 10);
   if (ph > 100) document.documentElement.style.setProperty('--phone-h', ph + 'px');
   if (DEBUG) document.body.classList.add('debug');
@@ -106,11 +116,25 @@
   }
 
   // ---------- SAP: Events senden ----------
+  function xmlOf(p) {
+    var x = '<payload>';
+    Object.keys(p).forEach(function (k) {
+      x += '<' + k + '>' + String(p[k]).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</' + k + '>';
+    });
+    return x + '</payload>';
+  }
+
   function toSap(payload) {
     if (!SAP_ENABLED || !inIframe) { log('(SAP aus oder Seite nicht in SAP) ' + JSON.stringify(payload)); return; }
-    var out = SAP_WRAP_IN_PAYLOAD ? { payload: payload } : payload;
-    window.parent.postMessage(SAP_SEND_AS_STRING ? JSON.stringify(out) : out, '*');
-    log('-> SAP ' + JSON.stringify(payload));
+    var out;
+    if (sapFormat === 'xml') {
+      out = xmlOf(payload);
+    } else {
+      out = sapFormat.indexOf('wrap') === 0 ? { payload: payload } : payload;
+      if (/string$/.test(sapFormat)) out = JSON.stringify(out);
+    }
+    window.parent.postMessage(out, '*');
+    log('-> SAP [' + sapFormat + '] ' + (typeof out === 'string' ? out : JSON.stringify(out)));
   }
 
   function normalizeNumber(raw) {
@@ -222,6 +246,10 @@
   document.getElementById('btnHangup').onclick = function () { if (needInteraction()) send('hangup', { interactionId: state.interactionId }); };
   document.getElementById('btnHold').onclick = function () { if (needInteraction()) send('hold', { interactionId: state.interactionId }); };
   document.getElementById('btnMute').onclick = function () { if (needInteraction()) send('mute', { interactionId: state.interactionId }); };
+
+  var fmtSel = document.getElementById('sapFormat');
+  fmtSel.value = sapFormat;
+  fmtSel.onchange = function () { sapFormat = fmtSel.value; log('SAP-Format: ' + sapFormat); };
 
   var TEST_ID = 'TEST' + Date.now().toString(16).toUpperCase();
   function testAni() { return normalizeNumber(document.getElementById('sapTestAni').value); }
