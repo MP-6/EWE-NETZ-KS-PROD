@@ -50,7 +50,8 @@
         <option value="flat-object">flach / Objekt</option>
         <option value="wrap-string">payload-Schluessel / JSON-Text</option>
         <option value="wrap-object">payload-Schluessel / Objekt</option>
-        <option value="xml">XML</option>
+        <option value="xml">XML (ohne Kopfzeile)</option>
+        <option value="xml-decl">XML (mit xml-Kopfzeile)</option>
       </select>
     </div>
     <div class="row">
@@ -79,7 +80,7 @@
   var INTERACTION_SRC = GENESYS_ORIGIN + '/crm/interaction.html';
   var DEFAULT_COUNTRY_CODE = '+49';   // fuer Nummern ohne + (z. B. 0173... -> +49173...)
   var SAP_ENABLED = true;             // Events an SAP senden (Notify/Accept/End)
-  // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml
+  // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: flat-string)
   // ===========================
 
@@ -127,8 +128,8 @@
   function toSap(payload) {
     if (!SAP_ENABLED || !inIframe) { log('(SAP aus oder Seite nicht in SAP) ' + JSON.stringify(payload)); return; }
     var out;
-    if (sapFormat === 'xml') {
-      out = xmlOf(payload);
+    if (sapFormat === 'xml' || sapFormat === 'xml-decl') {
+      out = (sapFormat === 'xml-decl' ? '<?xml version="1.0" encoding="utf-8"?>' : '') + xmlOf(payload);
     } else {
       out = sapFormat.indexOf('wrap') === 0 ? { payload: payload } : payload;
       if (/string$/.test(sapFormat)) out = JSON.stringify(out);
