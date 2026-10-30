@@ -265,7 +265,7 @@
                 log('<- ERROR ' + d.where + ': ' + d.message);
                 break;
             default:
-                log('<- ' + msg.type);
+                log('<- ' + msg.type + ' ' + JSON.stringify(d).slice(0, 300));
         }
         updateInfo();
     });
