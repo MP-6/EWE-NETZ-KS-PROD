@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genesys CTI (SAP Live Interaction Widget)</title>
+    <style>
+        /* ===== Genesys CTI Testpanel ===== */
+        .cti-panel {
+            position: fixed;
+            left: 20px;
+            bottom: 60px;
+            width: 980px;
+            max-width: calc(100vw - 40px);
+            background: #fff;
+            color: #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.35);
+            z-index: 9998;
+            overflow: hidden;
+            font-size: 13px;
+        }
+        .cti-header {
+            background: #005f96;
+            color: #fff;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .cti-panel.collapsed .cti-body { display: none; }
+        .cti-body iframe { width: 100%; height: 480px; border: 0; display: block; }
+        .cti-controls { padding: 8px; border-top: 1px solid #ddd; display: grid; gap: 6px; }
+        .cti-row { display: flex; gap: 6px; }
+        .cti-row input, .cti-row select { flex: 1; padding: 5px; min-width: 0; }
+        .cti-row button { padding: 5px 8px; cursor: pointer; border: 0; border-radius: 4px; background: #005f96; color: #fff; }
+        .cti-row button.danger { background: #c0392b; }
+        .cti-row button.ok { background: #00A888; }
+        .cti-info { font-size: 12px; color: #555; }
+        .cti-log { height: 90px; overflow: auto; background: #f7f7f7; border: 1px solid #ddd; padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
+
+
+        .cti-body { display: flex; }
+        .cti-col-left { flex: 0 0 400px; width: 400px; }
+        .cti-col-right { flex: 1 1 auto; min-width: 0; border-left: 1px solid #ddd; display: flex; }
+        .cti-col-right iframe { flex: 1; height: auto; min-height: 600px; }
+        .cti-panel.hide-right { width: 400px; }
+        .cti-panel.hide-right .cti-col-right { display: none; }
+        .cti-header .cti-actions { display: flex; align-items: center; gap: 10px; }
+        .cti-header button { background: rgba(255,255,255,.2); color: #fff; border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 12px; }
+        @media (max-width: 1050px) {
+            .cti-panel, .cti-panel.hide-right { width: 400px; }
+            .cti-body { flex-direction: column; }
+            .cti-col-left { flex: none; width: 100%; }
+            .cti-col-right { border-left: 0; border-top: 1px solid #ddd; }
+            .cti-col-right iframe { min-height: 420px; }
+        }
+    
+        /* ===== Vollflaechen-Variante fuer SAP (Live Interaction Widget) ===== */
+        html, body { height: 100%; margin: 0; background: #fff; font-family: Arial, sans-serif; }
+        .cti-panel {
+            position: static; width: 100%; max-width: none; height: 100%;
+            border-radius: 0; box-shadow: none; display: flex; flex-direction: column;
+        }
+        .cti-panel.hide-right { width: 100%; }
+        .cti-body { flex: 1; min-height: 0; }
+        .cti-col-left { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+        .cti-col-left iframe { flex: 1; height: auto; min-height: 300px; }
+        .cti-col-right { height: 100%; }
+        .cti-col-right iframe { min-height: 0; height: 100%; }
+        @media (max-width: 1050px) {
+            .cti-panel, .cti-panel.hide-right { width: 100%; height: auto; min-height: 100%; }
+            .cti-body { flex-direction: column; overflow: auto; }
+            .cti-col-left { flex: none; width: 100%; height: auto; }
+            .cti-col-left iframe { flex: none; height: 480px; }
+            .cti-col-right { height: auto; }
+            .cti-col-right iframe { height: 460px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Diese Seite wird in der SAP Service Cloud als Provider URL eingetragen. -->
+<div class="cti-panel" id="ctiPanel">
+    <div class="cti-header" id="ctiHeader">
+        <strong>&#9742; Genesys CTI</strong>
+        <span class="cti-actions">
+            <button id="btnRight" title="Script und Copilot ein-/ausblenden">Script &amp; Copilot</button>
+            <span id="ctiToggle">&#9660;</span>
+        </span>
+    </div>
+    <div class="cti-body">
+        <div class="cti-col-left">
+            <iframe id="genesysFrame"
+                    allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+                    title="Genesys Cloud Embeddable Framework"></iframe>
+            <div class="cti-controls">
+                <div class="cti-info" id="ctiInfo">Framework: nicht verbunden | Interaktion: -</div>
+                <div class="cti-row">
+                    <button class="ok" id="btnAnswer">Annehmen</button>
+                    <button class="danger" id="btnHangup">Auflegen</button>
+                    <button id="btnHold">Halten</button>
+                    <button id="btnMute">Stumm</button>
+                </div>
+                <div class="cti-log" id="ctiLog"></div>
+            </div>
+        </div>
+        <div class="cti-col-right">
+            <iframe id="genesysInteractionFrame"
+                    allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+                    title="Genesys Cloud Interaktionsfenster (Script und Copilot)"></iframe>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    // ====== Konfiguration ======
+    // Region passend zu apps.mypurecloud.de. Die genaue iFrame-URL fuer die Private Deployment
+    // bitte gegen die Tabelle "iframe URLs" im Genesys Developer Center pruefen.
+    var GENESYS_ORIGIN = 'https://apps.mypurecloud.de';
+    var INTERACTION_SRC = GENESYS_ORIGIN + '/crm/interaction.html';
+    var FRAME_SRC = GENESYS_ORIGIN + '/crm/embeddableFramework.html?enableFrameworkClientId=true&dedicatedLoginWindow=true';
+    // Alternative (lokales Testen): GENESYS_ORIGIN + '/crm/index.html?crm=framework-local-secure'
+    // ===========================
+
+    var frame = document.getElementById('genesysFrame');
+    var interactionFrame = document.getElementById('genesysInteractionFrame');
+    var infoEl = document.getElementById('ctiInfo');
+    var logEl = document.getElementById('ctiLog');
+    var state = { ready: false, interactionId: null };
+
+    function log(text) {
+        var t = new Date().toLocaleTimeString();
+        logEl.textContent += '[' + t + '] ' + text + '\n';
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function updateInfo() {
+        infoEl.textContent = 'Framework: ' + (state.ready ? 'verbunden' : 'nicht verbunden') +
+            ' | Interaktion: ' + (state.interactionId || '-');
+    }
+
+    function send(type, data) {
+        if (!frame.contentWindow) return;
+        frame.contentWindow.postMessage(JSON.stringify({ type: type, data: data || {} }), GENESYS_ORIGIN);
+        log('-> ' + type + (data ? ' ' + JSON.stringify(data) : ''));
+    }
+
+    window.addEventListener('message', function (e) {
+        if (e.origin !== GENESYS_ORIGIN || e.source !== frame.contentWindow) return;
+        var msg;
+        try { msg = JSON.parse(e.data); } catch (err) { return; }
+        if (!msg || !msg.type) return;
+        var d = msg.data || {};
+
+        switch (msg.type) {
+            case 'ready':
+                state.ready = true;
+                log('<- ready (framework.js geladen)');
+                if (!interactionFrame.src) {
+                    interactionFrame.src = INTERACTION_SRC;
+                    log('Interaktionsfenster wird geladen: ' + INTERACTION_SRC);
+                }
+                break;
+            case 'interaction':
+                var i = d.interaction || {};
+                var id = i.id || (i.old && i.old.id);
+                log('<- interaction: ' + d.category + (id ? ' (' + id + ')' : ''));
+                if (id) state.interactionId = id;
+                if (d.category === 'deallocate') state.interactionId = null;
+                break;
+            case 'incomingInteraction':
+                log('<- Eingehende Interaktion');
+                break;
+            case 'copilotRequested':
+            case 'scriptRequested':
+                log('<- ' + msg.type + ' (' + d.interactionId + ')');
+                break;
+            case 'screenPop':
+                log('<- screenPop: ' + d.searchString);
+                // Hier spaeter: Kunde in SAP suchen und oeffnen
+                break;
+            case 'contactSearch':
+                log('<- contactSearch: ' + d.searchValue);
+                send('contactSearchResult', { requestId: d.requestId, contacts: [] });
+                break;
+            case 'processCallLog':
+                log('<- processCallLog (' + d.eventName + ')');
+                // Hier spaeter: Aktivitaet in SAP anlegen
+                send('processCallLogResult', { requestId: d.requestId, success: true });
+                break;
+            case 'notification':
+                if (d.category === 'interactionWindow') {
+                    log('<- notification interactionWindow ' + JSON.stringify(d.data || {}).slice(0, 200));
+                    document.getElementById('ctiPanel').classList.remove('hide-right');
+                } else {
+                    log('<- notification ' + JSON.stringify(d).slice(0, 300));
+                }
+                break;
+            case 'error':
+                log('<- ERROR ' + d.where + ': ' + d.message);
+                break;
+            default:
+                log('<- ' + msg.type + ' ' + JSON.stringify(d).slice(0, 300));
+        }
+        updateInfo();
+    });
+
+    function needInteraction() {
+        if (!state.interactionId) { log('Keine aktive Interaktion'); return false; }
+        return true;
+    }
+
+    document.getElementById('btnAnswer').onclick = function () { if (needInteraction()) send('answer', { interactionId: state.interactionId }); };
+    document.getElementById('btnHangup').onclick = function () { if (needInteraction()) send('hangup', { interactionId: state.interactionId }); };
+    document.getElementById('btnHold').onclick = function () { if (needInteraction()) send('hold', { interactionId: state.interactionId }); };
+    document.getElementById('btnMute').onclick = function () { if (needInteraction()) send('mute', { interactionId: state.interactionId }); };
+
+    document.getElementById('ctiHeader').onclick = function () {
+        var panel = document.getElementById('ctiPanel');
+        panel.classList.toggle('collapsed');
+        document.getElementById('ctiToggle').innerHTML = panel.classList.contains('collapsed') ? '&#9650;' : '&#9660;';
+    };
+
+    // Script/Copilot-Spalte ein-/ausblenden (iFrame bleibt geladen)
+    document.getElementById('btnRight').onclick = function (e) {
+        e.stopPropagation();
+        document.getElementById('ctiPanel').classList.toggle('hide-right');
+    };
+
+    frame.src = FRAME_SRC;
+    log('iFrame wird geladen: ' + FRAME_SRC);
+})();
+</script>
+
+</body>
+</html>
