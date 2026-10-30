@@ -1,239 +1,237 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Genesys CTI (SAP Live Interaction Widget)</title>
-    <style>
-        /* ===== Genesys CTI Testpanel ===== */
-        .cti-panel {
-            position: fixed;
-            left: 20px;
-            bottom: 60px;
-            width: 980px;
-            max-width: calc(100vw - 40px);
-            background: #fff;
-            color: #333;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,.35);
-            z-index: 9998;
-            overflow: hidden;
-            font-size: 13px;
-        }
-        .cti-header {
-            background: #005f96;
-            color: #fff;
-            padding: 8px 12px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .cti-panel.collapsed .cti-body { display: none; }
-        .cti-body iframe { width: 100%; height: 480px; border: 0; display: block; }
-        .cti-controls { padding: 8px; border-top: 1px solid #ddd; display: grid; gap: 6px; }
-        .cti-row { display: flex; gap: 6px; }
-        .cti-row input, .cti-row select { flex: 1; padding: 5px; min-width: 0; }
-        .cti-row button { padding: 5px 8px; cursor: pointer; border: 0; border-radius: 4px; background: #005f96; color: #fff; }
-        .cti-row button.danger { background: #c0392b; }
-        .cti-row button.ok { background: #00A888; }
-        .cti-info { font-size: 12px; color: #555; }
-        .cti-log { height: 90px; overflow: auto; background: #f7f7f7; border: 1px solid #ddd; padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Genesys CTI (SAP Live Interaction Widget)</title>
+<style>
+  :root { --phone-h: 250px; }
+  html, body { height: 100%; margin: 0; background: #fff; font-family: Arial, sans-serif; font-size: 13px; }
+  .wrap { display: flex; flex-direction: column; height: 100%; }
+  .phone { flex: 0 0 var(--phone-h); border-bottom: 1px solid #ccc; }
+  .inter { flex: 1 1 auto; min-height: 0; }
+  iframe { width: 100%; height: 100%; border: 0; display: block; }
 
-
-        .cti-body { display: flex; }
-        .cti-col-left { flex: 0 0 400px; width: 400px; }
-        .cti-col-right { flex: 1 1 auto; min-width: 0; border-left: 1px solid #ddd; display: flex; }
-        .cti-col-right iframe { flex: 1; height: auto; min-height: 600px; }
-        .cti-panel.hide-right { width: 400px; }
-        .cti-panel.hide-right .cti-col-right { display: none; }
-        .cti-header .cti-actions { display: flex; align-items: center; gap: 10px; }
-        .cti-header button { background: rgba(255,255,255,.2); color: #fff; border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 12px; }
-        @media (max-width: 1050px) {
-            .cti-panel, .cti-panel.hide-right { width: 400px; }
-            .cti-body { flex-direction: column; }
-            .cti-col-left { flex: none; width: 100%; }
-            .cti-col-right { border-left: 0; border-top: 1px solid #ddd; }
-            .cti-col-right iframe { min-height: 420px; }
-        }
-    
-        /* ===== Vollflaechen-Variante fuer SAP (Live Interaction Widget) ===== */
-        html, body { height: 100%; margin: 0; background: #fff; font-family: Arial, sans-serif; }
-        .cti-panel {
-            position: static; width: 100%; max-width: none; height: 100%;
-            border-radius: 0; box-shadow: none; display: flex; flex-direction: column;
-        }
-        .cti-panel.hide-right { width: 100%; }
-        .cti-body { flex: 1; min-height: 0; }
-        .cti-col-left { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-        .cti-col-left iframe { flex: 1; height: auto; min-height: 300px; }
-        .cti-col-right { height: 100%; }
-        .cti-col-right iframe { min-height: 0; height: 100%; }
-        @media (max-width: 1050px) {
-            .cti-panel, .cti-panel.hide-right { width: 100%; height: auto; min-height: 100%; }
-            .cti-body { flex-direction: column; overflow: auto; }
-            .cti-col-left { flex: none; width: 100%; height: auto; }
-            .cti-col-left iframe { flex: none; height: 480px; }
-            .cti-col-right { height: auto; }
-            .cti-col-right iframe { height: 460px; }
-        }
-    </style>
+  /* Debug-Leiste: nur mit ?debug=1 sichtbar */
+  .debugbar { display: none; padding: 6px; background: #f4f4f4; border-bottom: 1px solid #ccc; }
+  body.debug .debugbar { display: block; }
+  .row { display: flex; gap: 6px; margin: 4px 0; }
+  .row input { flex: 1; min-width: 0; padding: 4px; }
+  .row button { padding: 4px 8px; cursor: pointer; border: 0; border-radius: 4px; background: #005f96; color: #fff; }
+  .row button.ok { background: #00A888; }
+  .row button.danger { background: #c0392b; }
+  .row button.sap { background: #555; }
+  .info { font-size: 12px; color: #555; }
+  .log { height: 110px; overflow: auto; background: #fff; border: 1px solid #ddd; padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
+</style>
 </head>
 <body>
 
-<!-- Diese Seite wird in der SAP Service Cloud als Provider URL eingetragen. -->
-<div class="cti-panel" id="ctiPanel">
-    <div class="cti-header" id="ctiHeader">
-        <strong>&#9742; Genesys CTI</strong>
-        <span class="cti-actions">
-            <button id="btnRight" title="Script und Copilot ein-/ausblenden">Script &amp; Copilot</button>
-            <span id="ctiToggle">&#9660;</span>
-        </span>
+<!-- Provider URL fuer das SAP Live Interaction Widget.
+     Optionen: ?debug=1 (Testleiste + Log)  |  ?phoneHeight=300 (Hoehe des Telefon-Streifens in px) -->
+<div class="wrap">
+  <div class="phone">
+    <iframe id="genesysFrame"
+            allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+            title="Genesys Cloud Embeddable Framework"></iframe>
+  </div>
+
+  <div class="debugbar">
+    <div class="info" id="ctiInfo">Framework: nicht verbunden | Interaktion: -</div>
+    <div class="row">
+      <button class="ok" id="btnAnswer">Annehmen</button>
+      <button class="danger" id="btnHangup">Auflegen</button>
+      <button id="btnHold">Halten</button>
+      <button id="btnMute">Stumm</button>
     </div>
-    <div class="cti-body">
-        <div class="cti-col-left">
-            <iframe id="genesysFrame"
-                    allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
-                    title="Genesys Cloud Embeddable Framework"></iframe>
-            <div class="cti-controls">
-                <div class="cti-info" id="ctiInfo">Framework: nicht verbunden | Interaktion: -</div>
-                <div class="cti-row">
-                    <button class="ok" id="btnAnswer">Annehmen</button>
-                    <button class="danger" id="btnHangup">Auflegen</button>
-                    <button id="btnHold">Halten</button>
-                    <button id="btnMute">Stumm</button>
-                </div>
-                <div class="cti-log" id="ctiLog"></div>
-            </div>
-        </div>
-        <div class="cti-col-right">
-            <iframe id="genesysInteractionFrame"
-                    allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
-                    title="Genesys Cloud Interaktionsfenster (Script und Copilot)"></iframe>
-        </div>
+    <div class="row">
+      <input id="sapTestAni" value="+4915112345678" title="Test-Rufnummer fuer die SAP-Tests">
+      <button class="sap" id="btnSapNotify">SAP: Notify</button>
+      <button class="sap" id="btnSapAccept">SAP: Accept</button>
+      <button class="sap" id="btnSapEnd">SAP: End</button>
     </div>
+    <div class="log" id="ctiLog"></div>
+  </div>
+
+  <div class="inter">
+    <iframe id="genesysInteractionFrame"
+            allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+            title="Genesys Cloud Interaktionsfenster (Script und Copilot)"></iframe>
+  </div>
 </div>
 
 <script>
 (function () {
-    // ====== Konfiguration ======
-    // Region passend zu apps.mypurecloud.de. Die genaue iFrame-URL fuer die Private Deployment
-    // bitte gegen die Tabelle "iframe URLs" im Genesys Developer Center pruefen.
-    var GENESYS_ORIGIN = 'https://apps.mypurecloud.de';
-    var INTERACTION_SRC = GENESYS_ORIGIN + '/crm/interaction.html';
-    var FRAME_SRC = GENESYS_ORIGIN + '/crm/embeddableFramework.html?enableFrameworkClientId=true&dedicatedLoginWindow=true';
-    // Alternative (lokales Testen): GENESYS_ORIGIN + '/crm/index.html?crm=framework-local-secure'
-    // ===========================
+  'use strict';
 
-    var frame = document.getElementById('genesysFrame');
-    var interactionFrame = document.getElementById('genesysInteractionFrame');
-    var infoEl = document.getElementById('ctiInfo');
-    var logEl = document.getElementById('ctiLog');
-    var state = { ready: false, interactionId: null };
+  // ====== Konfiguration ======
+  var GENESYS_ORIGIN = 'https://apps.mypurecloud.de';
+  var FRAME_SRC = GENESYS_ORIGIN + '/crm/embeddableFramework.html?enableFrameworkClientId=true&dedicatedLoginWindow=true';
+  var INTERACTION_SRC = GENESYS_ORIGIN + '/crm/interaction.html';
+  var DEFAULT_COUNTRY_CODE = '+49';   // fuer Nummern ohne + (z. B. 0173... -> +49173...)
+  var SAP_ENABLED = true;             // Events an SAP senden (Notify/Accept/End)
+  var SAP_SEND_AS_STRING = true;      // true: JSON-String, false: Objekt
+  var SAP_WRAP_IN_PAYLOAD = false;    // true: {"payload": {...}} statt flachem JSON
+  // ===========================
 
-    function log(text) {
-        var t = new Date().toLocaleTimeString();
-        logEl.textContent += '[' + t + '] ' + text + '\n';
-        logEl.scrollTop = logEl.scrollHeight;
-    }
+  var params = new URLSearchParams(location.search);
+  var DEBUG = params.get('debug') === '1';
+  var ph = parseInt(params.get('phoneHeight'), 10);
+  if (ph > 100) document.documentElement.style.setProperty('--phone-h', ph + 'px');
+  if (DEBUG) document.body.classList.add('debug');
 
-    function updateInfo() {
-        infoEl.textContent = 'Framework: ' + (state.ready ? 'verbunden' : 'nicht verbunden') +
-            ' | Interaktion: ' + (state.interactionId || '-');
-    }
+  var frame = document.getElementById('genesysFrame');
+  var interactionFrame = document.getElementById('genesysInteractionFrame');
+  var infoEl = document.getElementById('ctiInfo');
+  var logEl = document.getElementById('ctiLog');
+  var inIframe = window.parent !== window;
+  var state = { ready: false, interactionId: null };
+  var calls = {};   // Zustand je Interaktion: {notified, accepted, ended}
 
-    function send(type, data) {
-        if (!frame.contentWindow) return;
-        frame.contentWindow.postMessage(JSON.stringify({ type: type, data: data || {} }), GENESYS_ORIGIN);
-        log('-> ' + type + (data ? ' ' + JSON.stringify(data) : ''));
-    }
+  function log(text) {
+    if (!DEBUG) return;
+    logEl.textContent += '[' + new Date().toLocaleTimeString() + '] ' + text + '\n';
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function updateInfo() {
+    infoEl.textContent = 'Framework: ' + (state.ready ? 'verbunden' : 'nicht verbunden') +
+      ' | Interaktion: ' + (state.interactionId || '-');
+  }
 
-    window.addEventListener('message', function (e) {
-        if (e.origin !== GENESYS_ORIGIN || e.source !== frame.contentWindow) return;
-        var msg;
-        try { msg = JSON.parse(e.data); } catch (err) { return; }
-        if (!msg || !msg.type) return;
-        var d = msg.data || {};
+  // ---------- Genesys: Befehle senden ----------
+  function send(type, data) {
+    if (!frame.contentWindow) return;
+    frame.contentWindow.postMessage(JSON.stringify({ type: type, data: data || {} }), GENESYS_ORIGIN);
+    log('-> ' + type + (data ? ' ' + JSON.stringify(data) : ''));
+  }
 
-        switch (msg.type) {
-            case 'ready':
-                state.ready = true;
-                log('<- ready (framework.js geladen)');
-                if (!interactionFrame.src) {
-                    interactionFrame.src = INTERACTION_SRC;
-                    log('Interaktionsfenster wird geladen: ' + INTERACTION_SRC);
-                }
-                break;
-            case 'interaction':
-                var i = d.interaction || {};
-                var id = i.id || (i.old && i.old.id);
-                log('<- interaction: ' + d.category + (id ? ' (' + id + ')' : ''));
-                if (id) state.interactionId = id;
-                if (d.category === 'deallocate') state.interactionId = null;
-                break;
-            case 'incomingInteraction':
-                log('<- Eingehende Interaktion');
-                break;
-            case 'copilotRequested':
-            case 'scriptRequested':
-                log('<- ' + msg.type + ' (' + d.interactionId + ')');
-                break;
-            case 'screenPop':
-                log('<- screenPop: ' + d.searchString);
-                // Hier spaeter: Kunde in SAP suchen und oeffnen
-                break;
-            case 'contactSearch':
-                log('<- contactSearch: ' + d.searchValue);
-                send('contactSearchResult', { requestId: d.requestId, contacts: [] });
-                break;
-            case 'processCallLog':
-                log('<- processCallLog (' + d.eventName + ')');
-                // Hier spaeter: Aktivitaet in SAP anlegen
-                send('processCallLogResult', { requestId: d.requestId, success: true });
-                break;
-            case 'notification':
-                if (d.category === 'interactionWindow') {
-                    log('<- notification interactionWindow ' + JSON.stringify(d.data || {}).slice(0, 200));
-                    document.getElementById('ctiPanel').classList.remove('hide-right');
-                } else {
-                    log('<- notification ' + JSON.stringify(d).slice(0, 300));
-                }
-                break;
-            case 'error':
-                log('<- ERROR ' + d.where + ': ' + d.message);
-                break;
-            default:
-                log('<- ' + msg.type + ' ' + JSON.stringify(d).slice(0, 300));
-        }
-        updateInfo();
+  // ---------- SAP: Events senden ----------
+  function toSap(payload) {
+    if (!SAP_ENABLED || !inIframe) { log('(SAP aus oder Seite nicht in SAP) ' + JSON.stringify(payload)); return; }
+    var out = SAP_WRAP_IN_PAYLOAD ? { payload: payload } : payload;
+    window.parent.postMessage(SAP_SEND_AS_STRING ? JSON.stringify(out) : out, '*');
+    log('-> SAP ' + JSON.stringify(payload));
+  }
+
+  function normalizeNumber(raw) {
+    if (!raw) return '';
+    var n = String(raw).replace(/^tel:/i, '').replace(/[\s()\-\/]/g, '');
+    if (n.charAt(0) === '+') return n;
+    if (n.indexOf('00') === 0) return '+' + n.slice(2);
+    if (n.charAt(0) === '0') return DEFAULT_COUNTRY_CODE + n.slice(1);
+    return /^\d+$/.test(n) ? '+' + n : n;
+  }
+
+  function directionOf(i) {
+    var d = String(i.direction || '').toLowerCase();
+    if (d.indexOf('out') === 0 || i.isDialing === true) return 'OUTBOUND';
+    return 'INBOUND';
+  }
+
+  function numberOf(i, dir) {
+    var list = dir === 'INBOUND'
+      ? [i.ani, i.phone, i.displayAddress, i.remoteAddress]
+      : [i.phone, i.dnis, i.displayAddress, i.remoteAddress];
+    for (var k = 0; k < list.length; k++) { if (list[k]) return normalizeNumber(list[k]); }
+    return '';
+  }
+
+  function sapEvent(action, id, ani, dir) {
+    toSap({
+      Type: 'CALL',
+      EventType: action === 'END' ? 'UPDATEACTIVITY' : dir,
+      Action: action,
+      ANI: ani,
+      ExternalReferenceID: String(id).replace(/-/g, '')
     });
+  }
 
-    function needInteraction() {
-        if (!state.interactionId) { log('Keine aktive Interaktion'); return false; }
-        return true;
+  // ---------- Genesys-Interaktion -> SAP Notify/Accept/End ----------
+  function handleInteraction(category, i) {
+    if (!i) return;
+    var id = i.id || (i.old && i.old.id);
+    if (!id) return;
+    state.interactionId = id;
+    if (category === 'deallocate') { delete calls[id]; state.interactionId = null; return; }
+    if (i.isChat || i.isEmail || i.isMessage || i.isVoicemail || i.isCallback) return;   // nur Telefonie
+
+    var c = calls[id] || (calls[id] = {});
+    var dir = directionOf(i);
+    var ani = numberOf(i, dir);
+    var connected = i.isConnected === true || category === 'connect';
+    var ended = i.isDisconnected === true || i.isDone === true || category === 'disconnect';
+
+    if (DEBUG && category !== 'change') log('interaction ' + category + ': ' + JSON.stringify(i).slice(0, 700));
+
+    if (!c.notified && !connected && !ended && dir === 'INBOUND') {
+      c.notified = true; sapEvent('NOTIFY', id, ani, dir);
     }
+    if (connected && !c.accepted && !ended) {
+      c.accepted = true; sapEvent('ACCEPT', id, ani, dir);
+    }
+    if (ended && c.accepted && !c.ended) {
+      c.ended = true; sapEvent('END', id, ani, dir);
+    }
+  }
 
-    document.getElementById('btnAnswer').onclick = function () { if (needInteraction()) send('answer', { interactionId: state.interactionId }); };
-    document.getElementById('btnHangup').onclick = function () { if (needInteraction()) send('hangup', { interactionId: state.interactionId }); };
-    document.getElementById('btnHold').onclick = function () { if (needInteraction()) send('hold', { interactionId: state.interactionId }); };
-    document.getElementById('btnMute').onclick = function () { if (needInteraction()) send('mute', { interactionId: state.interactionId }); };
+  // ---------- Nachrichten von SAP (nur Log, z. B. Click-to-Call-Payload) ----------
+  function handleSapMessage(e) {
+    var d = e.data;
+    log('<- SAP ' + (typeof d === 'string' ? d : JSON.stringify(d)).slice(0, 400));
+  }
 
-    document.getElementById('ctiHeader').onclick = function () {
-        var panel = document.getElementById('ctiPanel');
-        panel.classList.toggle('collapsed');
-        document.getElementById('ctiToggle').innerHTML = panel.classList.contains('collapsed') ? '&#9650;' : '&#9660;';
-    };
+  // ---------- Nachrichten von Genesys (framework.js) ----------
+  window.addEventListener('message', function (e) {
+    if (inIframe && e.source === window.parent) { handleSapMessage(e); return; }
+    if (e.origin !== GENESYS_ORIGIN || e.source !== frame.contentWindow) return;
+    var msg;
+    try { msg = JSON.parse(e.data); } catch (err) { return; }
+    if (!msg || !msg.type) return;
+    var d = msg.data || {};
 
-    // Script/Copilot-Spalte ein-/ausblenden (iFrame bleibt geladen)
-    document.getElementById('btnRight').onclick = function (e) {
-        e.stopPropagation();
-        document.getElementById('ctiPanel').classList.toggle('hide-right');
-    };
+    switch (msg.type) {
+      case 'ready':
+        state.ready = true;
+        log('<- ready');
+        if (!interactionFrame.src) { interactionFrame.src = INTERACTION_SRC; log('Interaktionsfenster wird geladen'); }
+        break;
+      case 'interaction':
+        handleInteraction(d.category, d.interaction);
+        break;
+      case 'contactSearch':
+        send('contactSearchResult', { requestId: d.requestId, contacts: [] });
+        break;
+      case 'processCallLog':
+        send('processCallLogResult', { requestId: d.requestId, success: true });
+        break;
+      case 'error':
+        log('<- ERROR ' + d.where + ': ' + d.message);
+        break;
+      default:
+        log('<- ' + msg.type + ' ' + JSON.stringify(d).slice(0, 200));
+    }
+    updateInfo();
+  });
 
-    frame.src = FRAME_SRC;
-    log('iFrame wird geladen: ' + FRAME_SRC);
+  // ---------- Debug-Buttons ----------
+  function needInteraction() {
+    if (!state.interactionId) { log('Keine aktive Interaktion'); return false; }
+    return true;
+  }
+  document.getElementById('btnAnswer').onclick = function () { if (needInteraction()) send('answer', { interactionId: state.interactionId }); };
+  document.getElementById('btnHangup').onclick = function () { if (needInteraction()) send('hangup', { interactionId: state.interactionId }); };
+  document.getElementById('btnHold').onclick = function () { if (needInteraction()) send('hold', { interactionId: state.interactionId }); };
+  document.getElementById('btnMute').onclick = function () { if (needInteraction()) send('mute', { interactionId: state.interactionId }); };
+
+  var TEST_ID = 'TEST' + Date.now().toString(16).toUpperCase();
+  function testAni() { return normalizeNumber(document.getElementById('sapTestAni').value); }
+  document.getElementById('btnSapNotify').onclick = function () { sapEvent('NOTIFY', TEST_ID, testAni(), 'INBOUND'); };
+  document.getElementById('btnSapAccept').onclick = function () { sapEvent('ACCEPT', TEST_ID, testAni(), 'INBOUND'); };
+  document.getElementById('btnSapEnd').onclick = function () { sapEvent('END', TEST_ID, testAni(), 'INBOUND'); };
+
+  frame.src = FRAME_SRC;
+  log('iFrame wird geladen');
 })();
 </script>
-
 </body>
 </html>
