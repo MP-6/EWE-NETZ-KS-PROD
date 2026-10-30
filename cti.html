@@ -81,12 +81,12 @@
   var DEFAULT_COUNTRY_CODE = '+49';   // fuer Nummern ohne + (z. B. 0173... -> +49173...)
   var SAP_ENABLED = true;             // Events an SAP senden (Notify/Accept/End)
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
-  // (Standard: flat-string)
+  // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
 
   var params = new URLSearchParams(location.search);
   var DEBUG = params.get('debug') === '1';
-  var sapFormat = params.get('sap') || 'flat-string';
+  var sapFormat = params.get('sap') || 'wrap-object';
   var ph = parseInt(params.get('phoneHeight'), 10);
   if (ph > 100) document.documentElement.style.setProperty('--phone-h', ph + 'px');
   if (DEBUG) document.body.classList.add('debug');
