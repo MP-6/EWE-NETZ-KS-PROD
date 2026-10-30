@@ -83,7 +83,7 @@
             position: fixed;
             left: 20px;
             bottom: 60px;
-            width: 400px;
+            width: 980px;
             max-width: calc(100vw - 40px);
             background: #fff;
             color: #333;
@@ -113,9 +113,22 @@
         .cti-info { font-size: 12px; color: #555; }
         .cti-log { height: 90px; overflow: auto; background: #f7f7f7; border: 1px solid #ddd; padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
 
-        .cti-panel.second { left: 440px; width: 560px; max-width: calc(100vw - 460px); }
-        .cti-panel.second .cti-body iframe { height: 620px; }
-        @media (max-width: 1050px) { .cti-panel.second { left: 20px; bottom: 60px; } .cti-panel:not(.second) { display: block; } }
+
+        .cti-body { display: flex; }
+        .cti-col-left { flex: 0 0 400px; width: 400px; }
+        .cti-col-right { flex: 1 1 auto; min-width: 0; border-left: 1px solid #ddd; display: flex; }
+        .cti-col-right iframe { flex: 1; height: auto; min-height: 600px; }
+        .cti-panel.hide-right { width: 400px; }
+        .cti-panel.hide-right .cti-col-right { display: none; }
+        .cti-header .cti-actions { display: flex; align-items: center; gap: 10px; }
+        .cti-header button { background: rgba(255,255,255,.2); color: #fff; border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 12px; }
+        @media (max-width: 1050px) {
+            .cti-panel, .cti-panel.hide-right { width: 400px; }
+            .cti-body { flex-direction: column; }
+            .cti-col-left { flex: none; width: 100%; }
+            .cti-col-right { border-left: 0; border-top: 1px solid #ddd; }
+            .cti-col-right iframe { min-height: 420px; }
+        }
     </style>
 </head>
 <body>
@@ -158,33 +171,33 @@
 <!-- ===== Genesys Cloud Embeddable Framework (Private Deployment) ===== -->
 <div class="cti-panel" id="ctiPanel">
     <div class="cti-header" id="ctiHeader">
-        <strong>&#9742; Genesys CTI</strong><span id="ctiToggle">&#9660;</span>
+        <strong>&#9742; Genesys CTI</strong>
+        <span class="cti-actions">
+            <button id="btnRight" title="Script und Copilot ein-/ausblenden">Script &amp; Copilot</button>
+            <span id="ctiToggle">&#9660;</span>
+        </span>
     </div>
     <div class="cti-body">
-        <iframe id="genesysFrame"
-                allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
-                title="Genesys Cloud Embeddable Framework"></iframe>
-        <div class="cti-controls">
-            <div class="cti-info" id="ctiInfo">Framework: nicht verbunden | Interaktion: -</div>
-            <div class="cti-row">
-                <button class="ok" id="btnAnswer">Annehmen</button>
-                <button class="danger" id="btnHangup">Auflegen</button>
-                <button id="btnHold">Halten</button>
-                <button id="btnMute">Stumm</button>
+        <div class="cti-col-left">
+            <iframe id="genesysFrame"
+                    allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+                    title="Genesys Cloud Embeddable Framework"></iframe>
+            <div class="cti-controls">
+                <div class="cti-info" id="ctiInfo">Framework: nicht verbunden | Interaktion: -</div>
+                <div class="cti-row">
+                    <button class="ok" id="btnAnswer">Annehmen</button>
+                    <button class="danger" id="btnHangup">Auflegen</button>
+                    <button id="btnHold">Halten</button>
+                    <button id="btnMute">Stumm</button>
+                </div>
+                <div class="cti-log" id="ctiLog"></div>
             </div>
-            <div class="cti-log" id="ctiLog"></div>
         </div>
-    </div>
-</div>
-
-<div class="cti-panel second" id="ctiPanel2">
-    <div class="cti-header" id="ctiHeader2">
-        <strong>&#128221; Script &amp; Copilot</strong><span id="ctiToggle2">&#9660;</span>
-    </div>
-    <div class="cti-body">
-        <iframe id="genesysInteractionFrame"
-                allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
-                title="Genesys Cloud Interaktionsfenster"></iframe>
+        <div class="cti-col-right">
+            <iframe id="genesysInteractionFrame"
+                    allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+                    title="Genesys Cloud Interaktionsfenster (Script und Copilot)"></iframe>
+        </div>
     </div>
 </div>
 
@@ -268,8 +281,7 @@
             case 'notification':
                 if (d.category === 'interactionWindow') {
                     log('<- notification interactionWindow ' + JSON.stringify(d.data || {}).slice(0, 200));
-                    document.getElementById('ctiPanel2').classList.remove('collapsed');
-                    document.getElementById('ctiToggle2').innerHTML = '&#9660;';
+                    document.getElementById('ctiPanel').classList.remove('hide-right');
                 } else {
                     log('<- notification ' + JSON.stringify(d).slice(0, 300));
                 }
@@ -299,10 +311,10 @@
         document.getElementById('ctiToggle').innerHTML = panel.classList.contains('collapsed') ? '&#9650;' : '&#9660;';
     };
 
-    document.getElementById('ctiHeader2').onclick = function () {
-        var panel = document.getElementById('ctiPanel2');
-        panel.classList.toggle('collapsed');
-        document.getElementById('ctiToggle2').innerHTML = panel.classList.contains('collapsed') ? '&#9650;' : '&#9660;';
+    // Script/Copilot-Spalte ein-/ausblenden (iFrame bleibt geladen)
+    document.getElementById('btnRight').onclick = function (e) {
+        e.stopPropagation();
+        document.getElementById('ctiPanel').classList.toggle('hide-right');
     };
 
     frame.src = FRAME_SRC;
