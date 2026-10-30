@@ -112,6 +112,10 @@
         .cti-row button.ok { background: #00A888; }
         .cti-info { font-size: 12px; color: #555; }
         .cti-log { height: 90px; overflow: auto; background: #f7f7f7; border: 1px solid #ddd; padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
+
+        .cti-panel.second { left: 440px; width: 560px; max-width: calc(100vw - 460px); }
+        .cti-panel.second .cti-body iframe { height: 620px; }
+        @media (max-width: 1050px) { .cti-panel.second { left: 20px; bottom: 60px; } .cti-panel:not(.second) { display: block; } }
     </style>
 </head>
 <body>
@@ -163,23 +167,6 @@
         <div class="cti-controls">
             <div class="cti-info" id="ctiInfo">Framework: nicht verbunden | Interaktion: -</div>
             <div class="cti-row">
-                <input id="ctiNumber" type="tel" placeholder="Rufnummer, z. B. +49...">
-                <button class="ok" id="btnDial">Anrufen</button>
-            </div>
-            <div class="cti-row">
-                <select id="ctiStatus">
-                    <option>Available</option>
-                    <option>Away</option>
-                    <option>Busy</option>
-                    <option>Break</option>
-                    <option>Meal</option>
-                    <option>Meeting</option>
-                    <option>Training</option>
-                    <option>Offline</option>
-                </select>
-                <button id="btnStatus">Status setzen</button>
-            </div>
-            <div class="cti-row">
                 <button class="ok" id="btnAnswer">Annehmen</button>
                 <button class="danger" id="btnHangup">Auflegen</button>
                 <button id="btnHold">Halten</button>
@@ -190,17 +177,30 @@
     </div>
 </div>
 
+<div class="cti-panel second" id="ctiPanel2">
+    <div class="cti-header" id="ctiHeader2">
+        <strong>&#128221; Script &amp; Copilot</strong><span id="ctiToggle2">&#9660;</span>
+    </div>
+    <div class="cti-body">
+        <iframe id="genesysInteractionFrame"
+                allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+                title="Genesys Cloud Interaktionsfenster"></iframe>
+    </div>
+</div>
+
 <script>
 (function () {
     // ====== Konfiguration ======
     // Region passend zu apps.mypurecloud.de. Die genaue iFrame-URL fuer die Private Deployment
     // bitte gegen die Tabelle "iframe URLs" im Genesys Developer Center pruefen.
     var GENESYS_ORIGIN = 'https://apps.mypurecloud.de';
+    var INTERACTION_SRC = GENESYS_ORIGIN + '/crm/interaction.html';
     var FRAME_SRC = GENESYS_ORIGIN + '/crm/embeddableFramework.html?enableFrameworkClientId=true&dedicatedLoginWindow=true';
     // Alternative (lokales Testen): GENESYS_ORIGIN + '/crm/index.html?crm=framework-local-secure'
     // ===========================
 
     var frame = document.getElementById('genesysFrame');
+    var interactionFrame = document.getElementById('genesysInteractionFrame');
     var infoEl = document.getElementById('ctiInfo');
     var logEl = document.getElementById('ctiLog');
     var state = { ready: false, interactionId: null };
@@ -233,6 +233,10 @@
             case 'ready':
                 state.ready = true;
                 log('<- ready (framework.js geladen)');
+                if (!interactionFrame.src) {
+                    interactionFrame.src = INTERACTION_SRC;
+                    log('Interaktionsfenster wird geladen: ' + INTERACTION_SRC);
+                }
                 break;
             case 'interaction':
                 var i = d.interaction || {};
@@ -261,6 +265,15 @@
                 // Hier spaeter: Aktivitaet in SAP anlegen
                 send('processCallLogResult', { requestId: d.requestId, success: true });
                 break;
+            case 'notification':
+                if (d.category === 'interactionWindow') {
+                    log('<- notification interactionWindow ' + JSON.stringify(d.data || {}).slice(0, 200));
+                    document.getElementById('ctiPanel2').classList.remove('collapsed');
+                    document.getElementById('ctiToggle2').innerHTML = '&#9660;';
+                } else {
+                    log('<- notification ' + JSON.stringify(d).slice(0, 300));
+                }
+                break;
             case 'error':
                 log('<- ERROR ' + d.where + ': ' + d.message);
                 break;
@@ -275,13 +288,6 @@
         return true;
     }
 
-    document.getElementById('btnDial').onclick = function () {
-        var n = document.getElementById('ctiNumber').value.trim();
-        if (n) send('clickToDial', { number: n, autoPlace: true });
-    };
-    document.getElementById('btnStatus').onclick = function () {
-        send('setStatus', { name: document.getElementById('ctiStatus').value });
-    };
     document.getElementById('btnAnswer').onclick = function () { if (needInteraction()) send('answer', { interactionId: state.interactionId }); };
     document.getElementById('btnHangup').onclick = function () { if (needInteraction()) send('hangup', { interactionId: state.interactionId }); };
     document.getElementById('btnHold').onclick = function () { if (needInteraction()) send('hold', { interactionId: state.interactionId }); };
@@ -291,6 +297,12 @@
         var panel = document.getElementById('ctiPanel');
         panel.classList.toggle('collapsed');
         document.getElementById('ctiToggle').innerHTML = panel.classList.contains('collapsed') ? '&#9650;' : '&#9660;';
+    };
+
+    document.getElementById('ctiHeader2').onclick = function () {
+        var panel = document.getElementById('ctiPanel2');
+        panel.classList.toggle('collapsed');
+        document.getElementById('ctiToggle2').innerHTML = panel.classList.contains('collapsed') ? '&#9650;' : '&#9660;';
     };
 
     frame.src = FRAME_SRC;
