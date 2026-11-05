@@ -171,23 +171,6 @@
   var GENESYS_ORIGIN = 'https://apps.mypurecloud.de';
   var FRAME_SRC = GENESYS_ORIGIN + '/crm/embeddableFramework.html?enableFrameworkClientId=true&dedicatedLoginWindow=true';
   var INTERACTION_SRC = GENESYS_ORIGIN + '/crm/interaction.html';
-  var COPILOT_BASE = GENESYS_ORIGIN + '/smart-advisor-ui/#/co-pilot';
-  function copilotUrl(interactionId) {
-    return COPILOT_BASE + '?host=cx&appsE2=true&iid=' + encodeURIComponent(interactionId) + '&interactionType=call&locale=de-de';
-  }
-  function showCopilot(interactionId) {
-    if (!interactionId) return;
-    var url = copilotUrl(interactionId);
-    if (interactionFrame.getAttribute('data-interaction-id') !== interactionId) {
-      interactionFrame.setAttribute('data-interaction-id', interactionId);
-      interactionFrame.src = url;
-      log('Agent Copilot wird direkt geladen: ' + interactionId);
-    }
-  }
-  function clearCopilot() {
-    interactionFrame.removeAttribute('data-interaction-id');
-    interactionFrame.removeAttribute('src');
-  }
   var DEFAULT_COUNTRY_CODE = '+49';   // fuer Nummern ohne + (z. B. 0173... -> +49173...)
   var SAP_ENABLED = true;             // Events an SAP senden (Notify/Accept/End)
   // Organisationsspezifische Genesys Presence-Definition-IDs als URL-Parameter:
@@ -216,7 +199,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '05.11.2026 10:14';
+  var CTI_VERSION = '05.11.2026 10:36';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -363,7 +346,7 @@
       document.getElementById('emptyText').textContent = 'Bitte oben im Telefonfenster anmelden.';
     } else {
       document.getElementById('emptyTitle').textContent = 'Warte auf Anruf';
-      document.getElementById('emptyText').textContent = 'Agent Copilot wird direkt geladen, sobald ein Anruf eingeht.';
+      document.getElementById('emptyText').textContent = 'Agent Copilot wird beim eingehenden Anruf sofort mit vollst\u00e4ndigem Genesys-Kontext geladen.';
     }
   }
 
@@ -459,7 +442,6 @@
     if (category === 'deallocate') {
       delete calls[id];
       state.interactionId = null;
-      clearCopilot();
       setMode('idle', '');
       return;
     }
@@ -475,12 +457,10 @@
     if (DEBUG && category !== 'change') log('interaction ' + category + ': ' + JSON.stringify(i).slice(0, 700));
 
     if (!c.notified && !connected && !ended && dir === 'INBOUND') {
-      c.notified = true;
-      showCopilot(id);
-      sapEvent('NOTIFY', id, ani, dir); setMode('ringing', ani);
+      c.notified = true; sapEvent('NOTIFY', id, ani, dir); setMode('ringing', ani);
     }
     if (!c.dialing && !connected && !ended && dir === 'OUTBOUND') {
-      c.dialing = true; showCopilot(id); setMode('dialing', ani);
+      c.dialing = true; setMode('dialing', ani);
     }
     if (connected && !c.accepted && !ended) {
       c.accepted = true; sapEvent('ACCEPT', id, ani, dir); setMode('active', ani);
@@ -512,7 +492,7 @@
       case 'ready':
         state.ready = true;
         log('<- ready');
-        log('Genesys Interaktionsfenster bereit');
+        if (!interactionFrame.src) { interactionFrame.src = INTERACTION_SRC; log('Interaktionsfenster wird geladen'); }
         renderState(); updateEmpty();
         break;
       case 'interaction':
@@ -583,6 +563,6 @@
   log('iFrame wird geladen');
 })();
 </script>
-<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 05.11.2026 10:14</div>
+<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 05.11.2026 10:36</div>
 </body>
 </html>
