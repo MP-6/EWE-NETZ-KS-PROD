@@ -199,7 +199,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '05.11.2026 09:02';
+  var CTI_VERSION = '05.11.2026 09:16';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -263,16 +263,34 @@
   function buildStatusOptions(currentKey, currentLabel) {
     var sel = document.getElementById('statusSelect');
     sel.innerHTML = '';
-    var keys = Object.keys(STATUS_LABELS);
-    if (currentKey && keys.indexOf(currentKey) < 0) keys.unshift(currentKey);
-    keys.forEach(function (key) {
+
+    function addOption(parent, key) {
       var opt = document.createElement('option');
       opt.value = key;
       opt.textContent = key === currentKey && currentLabel ? currentLabel : (STATUS_LABELS[key] || key);
-      // Der aktuelle Status bleibt immer sichtbar. Andere Status nur, wenn eine Presence-ID konfiguriert ist.
       opt.disabled = key !== currentKey && !statusId(key);
-      sel.appendChild(opt);
-    });
+      parent.appendChild(opt);
+    }
+    function addGroup(label, keys) {
+      var group = document.createElement('optgroup');
+      group.label = label;
+      keys.forEach(function (key) { addOption(group, key); });
+      sel.appendChild(group);
+    }
+
+    // Systemstatus in der gewohnten Reihenfolge.
+    addOption(sel, 'AVAILABLE');
+    addGroup('Beschäftigt', ['BUSY', 'COACHING_FEEDBACK', 'SCHRIFTBEARBEITUNG', 'FACHANSPRECHPARTNER']);
+    addOption(sel, 'AWAY');
+    addOption(sel, 'BREAK');
+    addOption(sel, 'MEAL');
+    addOption(sel, 'MEETING');
+    addGroup('Schulung', ['TRAINING', 'BASIC_TRAINING', 'PERFORMANCE_TRAINING', 'UPDATE_TRAINING']);
+    addOption(sel, 'ON_QUEUE');
+
+    // Falls Genesys einen hier nicht abgebildeten Status meldet, bleibt er trotzdem sichtbar.
+    var known = ['AVAILABLE','BUSY','COACHING_FEEDBACK','SCHRIFTBEARBEITUNG','FACHANSPRECHPARTNER','AWAY','BREAK','MEAL','MEETING','TRAINING','BASIC_TRAINING','PERFORMANCE_TRAINING','UPDATE_TRAINING','ON_QUEUE'];
+    if (currentKey && known.indexOf(currentKey) < 0) addOption(sel, currentKey);
   }
   document.getElementById('statusSelect').addEventListener('change', function () {
     var key = this.value;
@@ -545,6 +563,6 @@
   log('iFrame wird geladen');
 })();
 </script>
-<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 05.11.2026 09:02</div>
+<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 05.11.2026 09:16</div>
 </body>
 </html>
