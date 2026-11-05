@@ -152,7 +152,7 @@
     <div class="scalebox" id="scalebox">
       <iframe id="genesysInteractionFrame"
               allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
-              title="Genesys Cloud Interaktionsfenster (Script und Copilot)"></iframe>
+              title="Genesys Cloud Agent Copilot"></iframe>
     </div>
     <div class="empty" id="empty">
       <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
@@ -258,7 +258,7 @@
     var key = this.value;
     var id = statusId(key);
     if (!id) { this.value = ui.presence || ''; return; }
-    send('updateStatus', { id: id });
+    send('updateStatus', id);
   });
   function renderState() {
     var cls = 'dot', title, sub = '';
@@ -305,7 +305,7 @@
       document.getElementById('emptyText').textContent = 'Bitte oben im Telefonfenster anmelden.';
     } else {
       document.getElementById('emptyTitle').textContent = 'Warte auf Anruf';
-      document.getElementById('emptyText').textContent = 'Script und Copilot erscheinen hier, sobald ein Gespr\u00e4ch l\u00e4uft.';
+      document.getElementById('emptyText').textContent = 'Agent Copilot erscheint hier, sobald ein Gespr\u00e4ch l\u00e4uft.';
     }
   }
 
@@ -334,7 +334,7 @@
   // ---------- Genesys: Befehle senden ----------
   function send(type, data) {
     if (!frame.contentWindow) return;
-    frame.contentWindow.postMessage(JSON.stringify({ type: type, data: data || {} }), GENESYS_ORIGIN);
+    frame.contentWindow.postMessage(JSON.stringify({ type: type, data: data === undefined ? {} : data }), GENESYS_ORIGIN);
     log('-> ' + type + (data ? ' ' + JSON.stringify(data) : ''));
   }
 
