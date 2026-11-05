@@ -178,8 +178,28 @@
   var STATUS_LABELS = {
     ON_QUEUE: 'In Warteschlange', AVAILABLE: 'Verfügbar', AWAY: 'Abwesend',
     BREAK: 'Pause', MEAL: 'Essenspause', BUSY: 'Beschäftigt',
-    MEETING: 'Besprechung', TRAINING: 'Schulung'
+    MEETING: 'Besprechung', TRAINING: 'Schulung',
+    PERFORMANCE_TRAINING: 'Performance-Schulung', FACHANSPRECHPARTNER: 'Fachansprechpartner',
+    SCHRIFTBEARBEITUNG: 'Schriftbearbeitung', BASIC_TRAINING: 'Basis-Schulung',
+    UPDATE_TRAINING: 'Update-Schulung', COACHING_FEEDBACK: 'Coaching & Feedback'
   };
+  var STATUS_IDS = {
+    ON_QUEUE: 'e08eaf1b-ee47-4fa9-a231-1200e284798f',
+    AVAILABLE: '6a3af858-942f-489d-9700-5f9bcdcdae9b',
+    AWAY: '5e5c5c66-ea97-4e7f-ac41-6424784829f2',
+    BREAK: '227b37e2-f1d0-4dd0-8f50-badd7cf6d158',
+    MEAL: '3fd96123-badb-4f69-bc03-1b1ccc6d8014',
+    BUSY: '31fe3bac-dea6-44b7-bed7-47f91660a1a0',
+    MEETING: 'bbdff279-7ae1-48ea-bade-7831d7234c64',
+    TRAINING: 'd2390a99-8546-bad9-8f0a-219548e8aeb0',
+    PERFORMANCE_TRAINING: '0e2f5027-7514-4d58-8f91-8c5868ce684d',
+    FACHANSPRECHPARTNER: '3e93b26b-9b3a-4eb5-9792-5f4ed58ee430',
+    SCHRIFTBEARBEITUNG: '6072b39b-d919-47d4-91d1-9343e7e4cad4',
+    BASIC_TRAINING: '6fb8f7bd-ff45-4a31-bd52-6e93d9c238bd',
+    UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
+    COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
+  };
+  var CTI_VERSION = '05.11.2026 08:53';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -239,7 +259,7 @@
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
-  function statusId(key) { return params.get('status_' + key) || ''; }
+  function statusId(key) { return params.get('status_' + key) || STATUS_IDS[key] || ''; }
   function buildStatusOptions(currentKey, currentLabel) {
     var sel = document.getElementById('statusSelect');
     sel.innerHTML = '';
@@ -258,7 +278,7 @@
     var key = this.value;
     var id = statusId(key);
     if (!id) { this.value = ui.presence || ''; return; }
-    send('updateStatus', id);
+    send('userAction', { category: 'updateStatus', data: { id: id } });
   });
   function renderState() {
     var cls = 'dot', title, sub = '';
@@ -522,5 +542,6 @@
   log('iFrame wird geladen');
 })();
 </script>
+<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 05.11.2026 08:53</div>
 </body>
 </html>
