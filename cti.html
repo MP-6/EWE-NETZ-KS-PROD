@@ -199,7 +199,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '05.11.2026 08:53';
+  var CTI_VERSION = '05.11.2026 09:02';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -278,7 +278,10 @@
     var key = this.value;
     var id = statusId(key);
     if (!id) { this.value = ui.presence || ''; return; }
-    send('userAction', { category: 'updateStatus', data: { id: id } });
+    log('-> Statuswechsel angefordert: ' + key + ' / ' + id);
+    send('updateStatus', { id: id });
+    // Auswahl erst wieder dauerhaft umstellen, wenn Genesys den neuen Status zurueckmeldet.
+    setTimeout(function () { if (ui.presence !== key) { sel.value = ui.presence || ''; log('Statuswechsel noch nicht von Genesys bestaetigt'); } }, 1500);
   });
   function renderState() {
     var cls = 'dot', title, sub = '';
@@ -542,6 +545,6 @@
   log('iFrame wird geladen');
 })();
 </script>
-<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 05.11.2026 08:53</div>
+<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 05.11.2026 09:02</div>
 </body>
 </html>
