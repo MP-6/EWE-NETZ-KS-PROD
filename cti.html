@@ -6,7 +6,7 @@
 <title>Genesys CTI (SAP Live Interaction Widget)</title>
 <style>
   :root {
-    --phone-h: 250px;
+    --phone-h: 150px;
     --bg: #eef1f5; --bar: #ffffff; --card: #ffffff;
     --text: #1d2d3e; --muted: #6a7a8c; --line: #dde3ea;
     --accent: #005f96; --ok: #1b9e77; --warn: #f59a32;
@@ -26,7 +26,10 @@
          padding: 8px 12px; background: var(--bar); border-bottom: 1px solid var(--line); }
   .state { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .dot { width: 10px; height: 10px; border-radius: 50%; background: #9aa7b4; flex: none; --pulse: 27,158,119; }
-  .dot.ready { background: var(--ok); }
+  .dot.ready, .dot.p-green { background: var(--ok); }
+  .dot.p-orange { background: var(--warn); }
+  .dot.p-red { background: #d9534f; }
+  .dot.p-grey { background: #9aa7b4; }
   .dot.ringing { background: var(--warn); --pulse: 245,154,50; animation: pulse 1s infinite; }
   .dot.active { background: var(--ok); animation: pulse 2s infinite; }
   @keyframes pulse {
@@ -167,8 +170,12 @@
   var theme = params.get('theme') || 'auto';
   if (theme === 'auto') theme = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
   document.body.setAttribute('data-theme', theme);
-  var ph = parseInt(params.get('phoneHeight'), 10);
-  if (ph > 100) document.documentElement.style.setProperty('--phone-h', ph + 'px');
+  // Hoehe des Telefon-Streifens je Zustand (px); per URL ueberschreibbar: ?hIdle=150&hCall=270&hAcw=330
+  var HEIGHTS = {
+    idle: parseInt(params.get('hIdle'), 10) || 150,
+    call: parseInt(params.get('hCall'), 10) || parseInt(params.get('phoneHeight'), 10) || 270,
+    acw:  parseInt(params.get('hAcw'), 10) || 330
+  };
   if (DEBUG) document.body.classList.add('debug');
 
   function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -195,7 +202,17 @@
   }
 
   // ---------- Oberflaeche: Status, Platzhalter, Zoom, Telefon ein/aus ----------
-  var ui = { mode: 'idle', number: '', t0: 0, dur: 0, tick: null, endTimer: null };
+  var ui = { mode: 'idle', number: '', t0: 0, t1: 0, tick: null, presence: '', routing: '' };
+  var PRESENCE = {
+    AVAILABLE: ['Verf\u00fcgbar', 'p-green'], ON_QUEUE: ['In Warteschlange', 'p-green'],
+    AWAY: ['Abwesend', 'p-orange'], BREAK: ['Pause', 'p-orange'], MEAL: ['Essenspause', 'p-orange'],
+    BUSY: ['Besch\u00e4ftigt', 'p-red'], MEETING: ['Besprechung', 'p-red'], TRAINING: ['Schulung', 'p-red'],
+    OFFLINE: ['Offline', 'p-grey']
+  };
+  var ROUTING = {
+    OFF_QUEUE: 'Nicht in Warteschlange', IDLE: 'Bereit f\u00fcr Anrufe', INTERACTING: 'Im Gespr\u00e4ch',
+    COMMUNICATING: 'Im Gespr\u00e4ch', NOT_RESPONDING: 'Nicht erreichbar'
+  };
 
   function mmss(ms) {
     var s = Math.max(0, Math.floor(ms / 1000)), m = Math.floor(s / 60); s = s % 60;
@@ -204,12 +221,18 @@
 
   function renderState() {
     var cls = 'dot', title, sub = '';
+    var num = ui.number ? ui.number + ' \u00b7 ' : '';
     if (!state.ready) { title = 'Nicht verbunden'; sub = 'Bitte im Telefonfenster anmelden'; }
     else if (ui.mode === 'ringing') { cls += ' ringing'; title = 'Eingehender Anruf'; sub = ui.number; }
     else if (ui.mode === 'dialing') { cls += ' ringing'; title = 'Ausgehender Anruf'; sub = ui.number; }
-    else if (ui.mode === 'active') { cls += ' active'; title = 'Im Gespr\u00e4ch'; sub = (ui.number ? ui.number + ' \u00b7 ' : '') + mmss(Date.now() - ui.t0); }
-    else if (ui.mode === 'ended') { cls += ' ready'; title = 'Gespr\u00e4ch beendet'; sub = (ui.number ? ui.number + ' \u00b7 ' : '') + mmss(ui.dur); }
-    else { cls += ' ready'; title = 'Bereit'; sub = 'Warte auf Anruf'; }
+    else if (ui.mode === 'active') { cls += ' active'; title = 'Im Gespr\u00e4ch'; sub = num + mmss(Date.now() - ui.t0); }
+    else if (ui.mode === 'acw') { cls += ' ringing'; title = 'Nachbearbeitung'; sub = num + mmss(Date.now() - ui.t1) + ' \u00b7 Code w\u00e4hlen'; }
+    else {
+      var pr = PRESENCE[ui.presence];
+      cls += ' ' + (pr ? pr[1] : 'ready');
+      title = pr ? pr[0] : (ui.presence ? ui.presence.charAt(0) + ui.presence.slice(1).toLowerCase() : 'Verbunden');
+      sub = ROUTING[ui.routing] || '';
+    }
     document.getElementById('dot').className = cls;
     document.getElementById('stTitle').textContent = title;
     document.getElementById('stSub').textContent = sub;
@@ -231,14 +254,19 @@
 
   function expandPhone() { phoneEl.classList.remove('collapsed'); }
 
+  function applyPhoneHeight() {
+    var key = (ui.mode === 'acw') ? 'acw' : (ui.mode === 'idle' ? 'idle' : 'call');
+    document.documentElement.style.setProperty('--phone-h', HEIGHTS[key] + 'px');
+  }
+
   function setMode(mode, number) {
     ui.mode = mode;
     if (number !== undefined) ui.number = number || '';
-    clearTimeout(ui.endTimer);
     clearInterval(ui.tick);
     if (mode === 'active') { ui.t0 = Date.now(); ui.tick = setInterval(renderState, 1000); }
-    if (mode === 'ended') { ui.dur = Date.now() - ui.t0; ui.endTimer = setTimeout(function () { setMode('idle', ''); }, 8000); }
-    if (mode === 'ringing' || mode === 'dialing' || mode === 'active') expandPhone();
+    if (mode === 'acw') { ui.t1 = Date.now(); ui.tick = setInterval(renderState, 1000); }
+    if (mode !== 'idle') expandPhone();
+    applyPhoneHeight();
     renderState();
     updateEmpty();
   }
@@ -358,7 +386,7 @@
     }
     if (ended && !c.ended) {
       c.ended = true;
-      if (c.accepted) { sapEvent('END', id, ani, dir); setMode('ended'); }
+      if (c.accepted) { sapEvent('END', id, ani, dir); setMode('acw'); }
       else { setMode('idle', ''); }
     }
     updateEmpty();
@@ -388,6 +416,18 @@
         break;
       case 'interaction':
         handleInteraction(d.category, d.interaction);
+        break;
+      case 'userAction':
+        if (d.category === 'status' && d.data) {
+          ui.presence = String(d.data.status || '').toUpperCase();
+          log('<- Status: ' + ui.presence);
+          renderState();
+        } else if (d.category === 'routingStatus') {
+          ui.routing = String(typeof d.data === 'string' ? d.data : (d.data && d.data.status) || '').toUpperCase();
+          renderState();
+        } else {
+          log('<- userAction ' + JSON.stringify(d).slice(0, 200));
+        }
         break;
       case 'contactSearch':
         send('contactSearchResult', { requestId: d.requestId, contacts: [] });
@@ -425,6 +465,7 @@
   document.getElementById('btnSapEnd').onclick = function () { sapEvent('END', TEST_ID, testAni(), 'INBOUND'); };
 
   applyZoom();
+  applyPhoneHeight();
   renderState();
   updateEmpty();
   frame.src = FRAME_SRC;
