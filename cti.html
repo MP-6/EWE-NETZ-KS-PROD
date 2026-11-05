@@ -83,7 +83,7 @@
 <body>
 
 <!-- Provider URL fuer das SAP Live Interaction Widget.
-     Optionen: ?debug=1 | ?phoneHeight=300 | ?theme=dark|light|auto | ?phone=collapsed | ?sap=<format> -->
+     Optionen: ?summary=1 (Copilot-Zusammenfassung an SAP) | ?debug=1 | ?phoneHeight=300 | ?theme=dark|light|auto | ?phone=collapsed | ?sap=<format> -->
 <div class="app">
 
   <header class="bar">
@@ -132,6 +132,9 @@
       <button class="sap" id="btnSapAccept">SAP: Accept</button>
       <button class="sap" id="btnSapEnd">SAP: End</button>
     </div>
+    <div class="row">
+      <button class="sap" id="btnSummary">Zusammenfassung holen &rarr; SAP</button>
+    </div>
     <div class="log" id="ctiLog"></div>
   </div>
 
@@ -160,6 +163,10 @@
   var INTERACTION_SRC = GENESYS_ORIGIN + '/crm/interaction.html';
   var DEFAULT_COUNTRY_CODE = '+49';   // fuer Nummern ohne + (z. B. 0173... -> +49173...)
   var SAP_ENABLED = true;             // Events an SAP senden (Notify/Accept/End)
+  // Copilot-Zusammenfassung nach dem Gespraech an SAP schicken: nur mit ?summary=1 aktiv.
+  // SAP-Feld fuer den Text per ?summaryField=... aenderbar (Standard: Transcript, wie bei Chat/SMS in der SAP-Doku).
+  var API_BASE = 'https://api.mypurecloud.de';   // Region passend zu apps.mypurecloud.de
+  var SUMMARY_POLL_MS = 5000, SUMMARY_MAX_TRIES = 24;   // bis zu ca. 2 Minuten warten
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -167,6 +174,8 @@
   var params = new URLSearchParams(location.search);
   var DEBUG = params.get('debug') === '1';
   var sapFormat = params.get('sap') || 'wrap-object';
+  var SUMMARY_ENABLED = params.get('summary') === '1';
+  var SUMMARY_FIELD = params.get('summaryField') || 'Transcript';
   var theme = params.get('theme') || 'auto';
   if (theme === 'auto') theme = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
   document.body.setAttribute('data-theme', theme);
@@ -382,14 +391,75 @@
       c.dialing = true; setMode('dialing', ani);
     }
     if (connected && !c.accepted && !ended) {
-      c.accepted = true; sapEvent('ACCEPT', id, ani, dir); setMode('active', ani);
+      c.accepted = true; lastCall = { id: id, ani: ani }; sapEvent('ACCEPT', id, ani, dir); setMode('active', ani);
     }
     if (ended && !c.ended) {
       c.ended = true;
-      if (c.accepted) { sapEvent('END', id, ani, dir); setMode('acw'); }
+      if (c.accepted) { sapEvent('END', id, ani, dir); setMode('acw'); if (SUMMARY_ENABLED) pollSummary(id, ani); }
       else { setMode('idle', ''); }
     }
     updateEmpty();
+  }
+
+  // ---------- Copilot-Zusammenfassung -> SAP ----------
+  var tokenWaiters = [];
+  var tokenCache = { value: '', t: 0 };
+  var summarized = {};      // je Interaktion nur einmal senden
+  var lastCall = null;      // {id, ani} des letzten angenommenen Anrufs
+
+  function getToken() {
+    if (tokenCache.value && Date.now() - tokenCache.t < 10 * 60 * 1000) return Promise.resolve(tokenCache.value);
+    return new Promise(function (resolve, reject) {
+      var to = setTimeout(function () { reject(new Error('Kein Token vom Framework')); }, 8000);
+      tokenWaiters.push(function (t) { clearTimeout(to); resolve(t); });
+      send('getAuthToken', {});
+    });
+  }
+
+  // Der genaue Aufbau der Antwort von /summaries ist nicht geprueft: Text tolerant suchen.
+  function pickSummaryText(json) {
+    var items = (json && (json.entities || json.summaries)) || (Array.isArray(json) ? json : (json ? [json] : []));
+    var best = '', bestDate = '';
+    items.forEach(function (it) {
+      var txt = it && (it.text || it.summary || it.content || '');
+      if (txt && typeof txt === 'object') txt = txt.text || txt.summary || '';
+      var date = (it && (it.dateCreated || it.createdDate || it.dateModified)) || '';
+      if (typeof txt === 'string' && txt.trim() && date >= bestDate) { best = txt.trim(); bestDate = date; }
+    });
+    return best;
+  }
+
+  function fetchSummary(convId) {
+    return getToken().then(function (t) {
+      return fetch(API_BASE + '/api/v2/conversations/' + convId + '/summaries', { headers: { Authorization: 'Bearer ' + t } });
+    }).then(function (r) {
+      if (r.status === 404) return '';
+      if (!r.ok) throw new Error('summaries HTTP ' + r.status);
+      return r.json();
+    }).then(function (json) {
+      if (!json) return '';
+      if (DEBUG) log('summaries: ' + JSON.stringify(json).slice(0, 600));
+      return pickSummaryText(json);
+    });
+  }
+
+  function sendSummaryToSap(id, ani, text) {
+    var p = { Type: 'CALL', EventType: 'UPDATEACTIVITY', ANI: ani, ExternalReferenceID: String(id).replace(/-/g, '') };
+    p[SUMMARY_FIELD] = text;       // ohne "Action":"END" -> aktualisiert die Aktivitaet
+    toSap(p);
+  }
+
+  function pollSummary(id, ani, tries) {
+    if (summarized[id]) return;
+    tries = tries || 0;
+    fetchSummary(id).then(function (text) {
+      if (text) { summarized[id] = true; sendSummaryToSap(id, ani, text); log('Zusammenfassung an SAP gesendet (' + text.length + ' Zeichen)'); }
+      else if (tries < SUMMARY_MAX_TRIES) { setTimeout(function () { pollSummary(id, ani, tries + 1); }, SUMMARY_POLL_MS); }
+      else { log('Keine Zusammenfassung erhalten (aufgegeben)'); }
+    }).catch(function (e) {
+      log('Zusammenfassung: ' + e.message);
+      if (tries < 3) setTimeout(function () { pollSummary(id, ani, tries + 1); }, SUMMARY_POLL_MS);
+    });
   }
 
   // ---------- Nachrichten von SAP (nur Log, z. B. Click-to-Call-Payload) ----------
@@ -416,6 +486,10 @@
         break;
       case 'interaction':
         handleInteraction(d.category, d.interaction);
+        break;
+      case 'authToken':
+        tokenCache = { value: d.token || '', t: Date.now() };
+        tokenWaiters.splice(0).forEach(function (fn) { fn(tokenCache.value); });
         break;
       case 'userAction':
         if (d.category === 'status' && d.data) {
@@ -468,6 +542,15 @@
   applyPhoneHeight();
   renderState();
   updateEmpty();
+  document.getElementById('btnSummary').onclick = function () {
+    if (!lastCall) { log('Kein Anruf vorhanden'); return; }
+    fetchSummary(lastCall.id).then(function (text) {
+      if (!text) { log('Noch keine Zusammenfassung vorhanden'); return; }
+      sendSummaryToSap(lastCall.id, lastCall.ani, text);
+      log('Zusammenfassung gesendet (' + text.length + ' Zeichen)');
+    }).catch(function (e) { log('Zusammenfassung: ' + e.message); });
+  };
+
   frame.src = FRAME_SRC;
   log('iFrame wird geladen');
 })();
