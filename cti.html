@@ -150,6 +150,10 @@
 
   <main class="inter">
     <div class="scalebox" id="scalebox">
+      <iframe id="genesysComposableBroker"
+              src="https://apps.mypurecloud.de/crm-embeddable-desktop/index.html"
+              title="Genesys Composable Desktop Broker"
+              style="display:none"></iframe>
       <iframe id="genesysInteractionFrame"
               allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
               title="Genesys Cloud Agent Copilot"></iframe>
@@ -170,7 +174,14 @@
   // ====== Konfiguration ======
   var GENESYS_ORIGIN = 'https://apps.mypurecloud.de';
   var FRAME_SRC = GENESYS_ORIGIN + '/crm/embeddableFramework.html?enableFrameworkClientId=true&dedicatedLoginWindow=true';
-  var INTERACTION_SRC = GENESYS_ORIGIN + '/crm/interaction.html';
+  // Genesys Composable Desktop SDK
+  var COMPOSABLE_BASE = GENESYS_ORIGIN + '/crm-embeddable-desktop';
+  var COMPOSABLE_SCOPE_ID = 'ewe-sap-sc-main';
+  var COMPOSABLE_COMPONENT_ID = 'ewe-sap-sc-cti-v8';
+  // Official component name from the Genesys examples. Production use may require allowlisting by Genesys.
+  var COMPOSABLE_COMPONENT_NAME = 'GENESYS_CLOUD_COMPOSABLE_DESKTOP';
+  var COMPOSABLE_COPILOT_SRC = COMPOSABLE_BASE + '/component.html#/copilot?size=fluid&scope=embedded&scopeId=' + encodeURIComponent(COMPOSABLE_SCOPE_ID);
+  var COMPOSABLE_ACW_SRC = COMPOSABLE_BASE + '/component.html#/acw?size=fluid&scope=embedded&scopeId=' + encodeURIComponent(COMPOSABLE_SCOPE_ID);
   var DEFAULT_COUNTRY_CODE = '+49';   // fuer Nummern ohne + (z. B. 0173... -> +49173...)
   var SAP_ENABLED = true;             // Events an SAP senden (Notify/Accept/End)
   // Organisationsspezifische Genesys Presence-Definition-IDs als URL-Parameter:
@@ -199,7 +210,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '05.11.2026 10:36';
+  var CTI_VERSION = '05.11.2026 11:18';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -223,6 +234,52 @@
 
   var frame = document.getElementById('genesysFrame');
   var interactionFrame = document.getElementById('genesysInteractionFrame');
+  var composableBrokerFrame = document.getElementById('genesysComposableBroker');
+  var composableBroker = null;
+  var composableRegistered = false;
+  var composableAuthenticated = false;
+  var composableInteractionId = null;
+  var composableView = '';
+
+  function composablePost(type, data) {
+    if (!composableBroker) return;
+    composableBroker.postMessage({ type: type, data: data || {} }, GENESYS_ORIGIN);
+    log('Composable -> ' + type + ': ' + JSON.stringify(data || {}));
+  }
+  function composableGetStatus() {
+    composablePost('Genesys.ComposableDesktop.GET_STATUS', {
+      componentId: COMPOSABLE_COMPONENT_ID,
+      contextId: 'handshake'
+    });
+  }
+  function composableRegister() {
+    composablePost('Genesys.ComposableDesktop.REGISTRATION_REQUEST', {
+      componentId: COMPOSABLE_COMPONENT_ID,
+      name: COMPOSABLE_COMPONENT_NAME
+    });
+  }
+  function composableSetInteraction(id) {
+    composableInteractionId = id || null;
+    if (!id || !composableRegistered || !composableAuthenticated) return;
+    composablePost('Genesys.ComposableDesktop.SET_INTERACTION', {
+      componentId: COMPOSABLE_COMPONENT_ID,
+      scope: 'embedded',
+      scopeId: COMPOSABLE_SCOPE_ID,
+      interactionId: id
+    });
+  }
+  function showComposable(view, id) {
+    composableView = view;
+    composableInteractionId = id || composableInteractionId;
+    var src = view === 'acw' ? COMPOSABLE_ACW_SRC : COMPOSABLE_COPILOT_SRC;
+    if (interactionFrame.getAttribute('src') !== src) interactionFrame.setAttribute('src', src);
+    composableSetInteraction(composableInteractionId);
+  }
+  function hideComposable() {
+    composableView = '';
+    composableInteractionId = null;
+    interactionFrame.removeAttribute('src');
+  }
   var phoneEl = document.getElementById('phone');
   var scalebox = document.getElementById('scalebox');
   var infoEl = document.getElementById('ctiInfo');
@@ -346,7 +403,7 @@
       document.getElementById('emptyText').textContent = 'Bitte oben im Telefonfenster anmelden.';
     } else {
       document.getElementById('emptyTitle').textContent = 'Warte auf Anruf';
-      document.getElementById('emptyText').textContent = 'Agent Copilot wird beim eingehenden Anruf sofort mit vollst\u00e4ndigem Genesys-Kontext geladen.';
+      document.getElementById('emptyText').textContent = 'Agent Copilot wird beim Anruf als eigenst\u00e4ndige Genesys-Komponente geladen.';
     }
   }
 
@@ -442,6 +499,7 @@
     if (category === 'deallocate') {
       delete calls[id];
       state.interactionId = null;
+      hideComposable();
       setMode('idle', '');
       return;
     }
@@ -457,17 +515,17 @@
     if (DEBUG && category !== 'change') log('interaction ' + category + ': ' + JSON.stringify(i).slice(0, 700));
 
     if (!c.notified && !connected && !ended && dir === 'INBOUND') {
-      c.notified = true; sapEvent('NOTIFY', id, ani, dir); setMode('ringing', ani);
+      c.notified = true; showComposable('copilot', id); sapEvent('NOTIFY', id, ani, dir); setMode('ringing', ani);
     }
     if (!c.dialing && !connected && !ended && dir === 'OUTBOUND') {
-      c.dialing = true; setMode('dialing', ani);
+      c.dialing = true; showComposable('copilot', id); setMode('dialing', ani);
     }
     if (connected && !c.accepted && !ended) {
       c.accepted = true; sapEvent('ACCEPT', id, ani, dir); setMode('active', ani);
     }
     if (ended && !c.ended) {
       c.ended = true;
-      if (c.accepted) { sapEvent('END', id, ani, dir); setMode('acw'); }
+      if (c.accepted) { sapEvent('END', id, ani, dir); showComposable('acw', id); setMode('acw'); }
       else { setMode('idle', ''); }
     }
     updateEmpty();
@@ -478,6 +536,39 @@
     var d = e.data;
     log('<- SAP ' + (typeof d === 'string' ? d : JSON.stringify(d)).slice(0, 400));
   }
+
+  // ---------- Genesys Composable Desktop Broker ----------
+  composableBrokerFrame.addEventListener('load', function () {
+    composableBroker = composableBrokerFrame.contentWindow;
+    composableGetStatus();
+  });
+
+  window.addEventListener('message', function (e) {
+    if (e.origin !== GENESYS_ORIGIN || !composableBrokerFrame || e.source !== composableBrokerFrame.contentWindow) return;
+    var message = e.data;
+    if (typeof message === 'string') { try { message = JSON.parse(message); } catch (err) { return; } }
+    if (!message || !message.type || message.type.indexOf('Genesys.ComposableDesktop.') !== 0) return;
+    var data = message.data || {};
+    log('Composable <- ' + message.type + ': ' + JSON.stringify(data).slice(0, 700));
+
+    switch (message.type) {
+      case 'Genesys.ComposableDesktop.REGISTRATION_RESPONSE':
+        composableRegistered = true;
+        if (composableAuthenticated && composableInteractionId) composableSetInteraction(composableInteractionId);
+        break;
+      case 'Genesys.ComposableDesktop.STATUS_UPDATE':
+        if (data.contextId === 'handshake' || data.contextId === 'initial') {
+          composableRegister();
+        }
+        composableAuthenticated = data.authenticated === true;
+        if (composableRegistered && composableAuthenticated && composableInteractionId) composableSetInteraction(composableInteractionId);
+        break;
+      case 'Genesys.ComposableDesktop.INTERACTION_UPDATE':
+        break;
+      case 'Genesys.ComposableDesktop.LOCALE_UPDATE':
+        break;
+    }
+  });
 
   // ---------- Nachrichten von Genesys (framework.js) ----------
   window.addEventListener('message', function (e) {
@@ -492,7 +583,6 @@
       case 'ready':
         state.ready = true;
         log('<- ready');
-        if (!interactionFrame.src) { interactionFrame.src = INTERACTION_SRC; log('Interaktionsfenster wird geladen'); }
         renderState(); updateEmpty();
         break;
       case 'interaction':
@@ -509,6 +599,7 @@
           if (ui.mode === 'acw' && ui.routing === 'IDLE') {
             if (state.interactionId) delete calls[state.interactionId];
             state.interactionId = null;
+            hideComposable();
             setMode('idle', '');
           } else {
             renderState();
@@ -563,6 +654,6 @@
   log('iFrame wird geladen');
 })();
 </script>
-<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 05.11.2026 10:36</div>
+<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 05.11.2026 11:18</div>
 </body>
 </html>
