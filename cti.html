@@ -213,7 +213,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '06.11.2026 · v10.3 Summary-Bridge';
+  var CTI_VERSION = '06.11.2026 · v10.4 Summary-to-SAP-Test';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -487,6 +487,19 @@
     });
   }
 
+  function sendSummaryToSap(conversationId, summaryText) {
+    if (!conversationId || !summaryText) return;
+    toSap({
+      Type: 'CALL',
+      EventType: 'UPDATEACTIVITY',
+      Action: 'END',
+      ANI: '',
+      ExternalReferenceID: String(conversationId).replace(/-/g, ''),
+      Transcript: summaryText
+    });
+    log('SUMMARY -> SAP gesendet fuer ' + conversationId);
+  }
+
   // ---------- Genesys-Interaktion -> SAP Notify/Accept/End + Oberflaeche ----------
   function handleInteraction(category, i) {
     if (!i) return;
@@ -581,6 +594,7 @@
         if (summaryText) {
           log('SUMMARY GEFUNDEN: ' + summaryText);
           console.log('[CTI Summary Bridge]', { conversationId: d.conversationId, summary: summaryText, raw: d.data });
+          sendSummaryToSap(d.conversationId, summaryText);
           pendingSummaryConversationId = null;
           summaryPollAttempt = 0;
         } else if (summaryPollAttempt < 8) {
@@ -671,6 +685,6 @@
   log('iFrame wird geladen');
 })();
 </script>
-<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 06.11.2026 · v10.4 Summary-Bridge</div>
+<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 06.11.2026 · v10.4 Summary-to-SAP-Test</div>
 </body>
 </html>
