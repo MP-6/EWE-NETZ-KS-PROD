@@ -262,16 +262,27 @@
   }
 
   function extractSummaryText(data) {
-    var items = Array.isArray(data) ? data : ((data && (data.entities || data.summaries || data.results)) || []);
-    if (!Array.isArray(items)) items = [items];
-    for (var i = items.length - 1; i >= 0; i--) {
-      var x = items[i] || {};
-      var text = x.editedSummary || x.summary || x.text || x.content;
-      if (text && typeof text === 'object') text = text.text || text.content || '';
-      if (typeof text === 'string' && text.trim()) return text.trim();
-    }
-    return '';
-  }
+  var items = (data && Array.isArray(data.sessionSummaries)) ? data.sessionSummaries.slice() : [];
+  if (!items.length) return '';
+
+  items = items.filter(function (x) {
+    return x && String(x.status || '').toLowerCase() === 'completed' &&
+      (!x.mediaType || String(x.mediaType).toLowerCase() === 'call');
+  });
+  if (!items.length) return '';
+
+  items.sort(function (a, b) {
+    return new Date(b.dateCreated || 0).getTime() - new Date(a.dateCreated || 0).getTime();
+  });
+
+  var x = items[0];
+  var edited = x.editedSummary;
+  var editedText = '';
+  if (typeof edited === 'string') editedText = edited;
+  else if (edited && typeof edited === 'object') editedText = edited.text || edited.content || '';
+
+  return String(editedText || x.text || '').trim();
+}
 
   function log(text) {
     if (!DEBUG) return;
