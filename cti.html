@@ -92,6 +92,10 @@
   .log { height: 110px; overflow: auto; background: var(--bg); border: 1px solid var(--line); padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
 
   /* ---- Script-Spalte abschneiden: iFrame nach links verschieben und um denselben Betrag verbreitern ---- */
+  .header-tools { display: flex; align-items: center; gap: 6px; flex: none; }
+  .header-tools button { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px;
+                         padding: 5px 10px; font-size: 12px; cursor: pointer; }
+  .header-tools button:hover { border-color: var(--accent); }
   .row .lbl { white-space: nowrap; font-size: 12px; color: var(--muted); align-self: center; }
 
   /* ---- Feste Breite: Inhalt bleibt auch in einem breit aufgezogenen SAP-Fenster so schmal wie eingestellt ---- */
@@ -213,7 +217,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '06.11.2026 · v11 Copilot-Fix';
+  var CTI_VERSION = '06.11.2026 · v12 Copilot-FullPanel';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -573,27 +577,33 @@
   // ---------- Nur-Copilot-Ansicht (Script ausblenden) ----------
   // Das Interaktionsfenster wird virtuell breit (FULL_W) gerendert. Rechts sitzt das Copilot-Panel mit fester Breite
   // (ca. 300 px). Sichtbar ist nur dieser rechte Streifen, vergroessert auf die Breite des SAP-Fensters.
-  // Script bleibt permanent ausgeblendet. Optional: ?copilotW=300 | ?fullW=1080 | ?maxScale=1.7 | ?width=300
-  var FULL_W = parseInt(params.get('fullW'), 10) || 1080;
+  // URL: ?copilotW=300 (Panelbreite) | ?fullW=1100 | ?maxScale=1.7 | ?script=show (alles zeigen, nur zum Testen)
+  var FULL_W = parseInt(params.get('fullW'), 10) || 1100;
   var MAX_SCALE = parseFloat(params.get('maxScale')) || 1.7;
   function ctiLoad(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function ctiStore(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-  var copilotW = parseInt(params.get('copilotW'), 10) || 300;
-  var scriptHidden = true;   // Script permanent ausgeblendet
-  // Feste Breite der CTI-Anzeige in px (Standard 300, passend zur SAP-Seitenleiste). ?width=340 passt bei Bedarf an.
-  var WIDTH = params.has('width') ? (parseInt(params.get('width'), 10) || 0) : 300;
+  var copilotW = parseInt(params.get('copilotW'), 10) || 330;
+  var scriptHidden = true; // permanent nur Copilot-Ausschnitt
+  // Die CTI nutzt immer die komplette Breite, die SAP Service Cloud bereitstellt.
+  var WIDTH = 0; // SAP bestimmt die Aussenbreite; unsere CTI nutzt immer die komplette verfuegbare Breite
   document.documentElement.style.setProperty('--app-w', WIDTH > 0 ? WIDTH + 'px' : 'none');
   var interEl = document.querySelector('.inter');
   function applyLayout() {
     document.getElementById('cwRange').value = copilotW;
     document.getElementById('cwVal').textContent = copilotW + ' px';
-    if (!scriptHidden) { scalebox.style.cssText = ''; interactionFrame.style.cssText = ''; return; }
     var W = interEl.clientWidth, H = interEl.clientHeight;
     if (!W || !H) return;
-    var s = Math.min(W / copilotW, MAX_SCALE);
-    scalebox.style.cssText = 'position:absolute;right:0;top:0;height:100%;overflow:hidden;width:' + Math.round(copilotW * s) + 'px;';
-    interactionFrame.style.cssText = 'position:absolute;right:0;top:0;border:0;width:' + FULL_W + 'px;height:' + Math.round(H / s) +
-      'px;transform:scale(' + s + ');transform-origin:top right;';
+
+    // SAP darf seine Seitenleiste beliebig breit machen. Der sichtbare Bereich fuellt sie immer komplett.
+    // Im Genesys-Interaction-Window bleibt nur der rechte Copilot-Ausschnitt sichtbar.
+    var scale = W / copilotW;
+    if (MAX_SCALE > 0) scale = Math.min(scale, MAX_SCALE);
+    var visibleW = Math.ceil(W / scale);
+    var iframeH = Math.ceil(H / scale);
+
+    scalebox.style.cssText = 'position:absolute;left:0;right:0;top:0;bottom:0;overflow:hidden;width:100%;height:100%;';
+    interactionFrame.style.cssText = 'position:absolute;right:0;top:0;border:0;width:' + FULL_W + 'px;height:' + iframeH +
+      'px;transform:scale(' + scale + ');transform-origin:top right;';
   }
   document.getElementById('cwRange').oninput = function () {
     copilotW = parseInt(this.value, 10) || 300;
@@ -611,6 +621,6 @@
   log('iFrame wird geladen');
 })();
 </script>
-<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 06.11.2026 · v11 Copilot-Fix</div>
+<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 06.11.2026 · v12 Copilot-FullPanel</div>
 </body>
 </html>
