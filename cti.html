@@ -92,7 +92,6 @@
   .log { height: 110px; overflow: auto; background: var(--bg); border: 1px solid var(--line); padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
 
   /* ---- Script-Spalte abschneiden: iFrame nach links verschieben und um denselben Betrag verbreitern ---- */
-  .scalebox iframe { width: calc(100% + var(--crop-left, 0px)); margin-left: calc(-1 * var(--crop-left, 0px)); }
   .header-tools { display: flex; align-items: center; gap: 6px; flex: none; }
   .header-tools button { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px;
                          padding: 5px 10px; font-size: 12px; cursor: pointer; }
@@ -141,9 +140,9 @@
       <button id="btnMute">Stumm</button>
     </div>
     <div class="row">
-      <span class="lbl">Script-Zuschnitt</span>
-      <input type="range" id="cropRange" min="0" max="600" step="5">
-      <span class="lbl" id="cropVal"></span>
+      <span class="lbl">Copilot-Breite</span>
+      <input type="range" id="cwRange" min="200" max="600" step="5">
+      <span class="lbl" id="cwVal"></span>
     </div>
     <div class="row">
       <select id="sapFormat" title="Nachrichtenformat an SAP">
@@ -215,7 +214,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '06.11.2026 · v8 Script-Zuschnitt';
+  var CTI_VERSION = '06.11.2026 · v9 Copilot-Ansicht';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -572,28 +571,39 @@
   document.getElementById('btnSapAccept').onclick = function () { sapEvent('ACCEPT', TEST_ID, testAni(), 'INBOUND'); };
   document.getElementById('btnSapEnd').onclick = function () { sapEvent('END', TEST_ID, testAni(), 'INBOUND'); };
 
-  // ---------- Script-Spalte per CSS ausblenden ----------
-  // Zuschnitt in px (Breite der Script-Spalte inkl. schmalem Streifen links). Einstellbar mit ?debug=1 (Regler),
-  // fest per URL: ?cropLeft=200  |  Script anzeigen: ?script=show  |  verstecken: ?script=hide
-  var CROP_DEFAULT = 190;
+  // ---------- Nur-Copilot-Ansicht (Script ausblenden) ----------
+  // Das Interaktionsfenster wird virtuell breit (FULL_W) gerendert. Rechts sitzt das Copilot-Panel mit fester Breite
+  // (ca. 300 px). Sichtbar ist nur dieser rechte Streifen, vergroessert auf die Breite des SAP-Fensters.
+  // URL: ?copilotW=300 (Panelbreite) | ?fullW=1100 | ?maxScale=1.7 | ?script=show (alles zeigen) | ?script=hide
+  var FULL_W = parseInt(params.get('fullW'), 10) || 1100;
+  var MAX_SCALE = parseFloat(params.get('maxScale')) || 1.7;
   function ctiLoad(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function ctiStore(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-  var cropPx = parseInt(params.get('cropLeft'), 10) || parseInt(ctiLoad('ctiCropLeft'), 10) || CROP_DEFAULT;
+  var copilotW = parseInt(params.get('copilotW'), 10) || parseInt(ctiLoad('ctiCopilotW'), 10) || 300;
   var scriptHidden = params.get('script') === 'show' ? false : (params.get('script') === 'hide' ? true : ctiLoad('ctiScriptHidden') !== '0');
-  function applyCrop() {
-    document.documentElement.style.setProperty('--crop-left', (scriptHidden ? cropPx : 0) + 'px');
+  var interEl = document.querySelector('.inter');
+  function applyLayout() {
     document.getElementById('btnScript').textContent = scriptHidden ? 'Script einblenden' : 'Script ausblenden';
-    document.getElementById('cropRange').value = cropPx;
-    document.getElementById('cropVal').textContent = cropPx + ' px';
+    document.getElementById('cwRange').value = copilotW;
+    document.getElementById('cwVal').textContent = copilotW + ' px';
+    if (!scriptHidden) { scalebox.style.cssText = ''; interactionFrame.style.cssText = ''; return; }
+    var W = interEl.clientWidth, H = interEl.clientHeight;
+    if (!W || !H) return;
+    var s = Math.min(W / copilotW, MAX_SCALE);
+    scalebox.style.cssText = 'position:absolute;right:0;top:0;height:100%;overflow:hidden;width:' + Math.round(copilotW * s) + 'px;';
+    interactionFrame.style.cssText = 'position:absolute;right:0;top:0;border:0;width:' + FULL_W + 'px;height:' + Math.round(H / s) +
+      'px;transform:scale(' + s + ');transform-origin:top right;';
   }
   document.getElementById('btnScript').onclick = function () {
-    scriptHidden = !scriptHidden; ctiStore('ctiScriptHidden', scriptHidden ? '1' : '0'); applyCrop();
+    scriptHidden = !scriptHidden; ctiStore('ctiScriptHidden', scriptHidden ? '1' : '0'); applyLayout();
   };
-  document.getElementById('cropRange').oninput = function () {
-    cropPx = parseInt(this.value, 10) || 0; scriptHidden = true;
-    ctiStore('ctiCropLeft', String(cropPx)); ctiStore('ctiScriptHidden', '1'); applyCrop();
+  document.getElementById('cwRange').oninput = function () {
+    copilotW = parseInt(this.value, 10) || 300; scriptHidden = true;
+    ctiStore('ctiCopilotW', String(copilotW)); ctiStore('ctiScriptHidden', '1'); applyLayout();
   };
-  applyCrop();
+  window.addEventListener('resize', applyLayout);
+  if (window.ResizeObserver) new ResizeObserver(applyLayout).observe(interEl);
+  applyLayout();
   log('CTI-Version ' + CTI_VERSION);
 
   phoneEl.classList.add('collapsed');
@@ -603,6 +613,6 @@
   log('iFrame wird geladen');
 })();
 </script>
-<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 06.11.2026 · v8 Script-Zuschnitt</div>
+<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 06.11.2026 · v9 Copilot-Ansicht</div>
 </body>
 </html>
