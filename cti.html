@@ -213,7 +213,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '06.11.2026 · v10.1 Script-Immer-Aus';
+  var CTI_VERSION = '06.11.2026 · v10.2 Summary-Test';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -244,6 +244,65 @@
   var inIframe = window.parent !== window;
   var state = { ready: false, interactionId: null };
   var calls = {};   // Zustand je Interaktion: {notified, accepted, ended, dialing}
+  var pendingSummaryConversationId = null;
+  var summaryTokenRequested = false;
+  var summaryPollAttempt = 0;
+
+  function requestSummary(conversationId) {
+    if (!conversationId) return;
+    pendingSummaryConversationId = conversationId;
+    summaryPollAttempt = 0;
+    if (!summaryTokenRequested) {
+      summaryTokenRequested = true;
+      log('Summary-Test: Genesys AuthToken wird angefordert fuer ' + conversationId);
+      send('getAuthToken', {});
+    }
+  }
+
+  function extractSummaryText(data) {
+    var items = Array.isArray(data) ? data : ((data && (data.entities || data.summaries || data.results)) || []);
+    if (!Array.isArray(items)) items = [items];
+    for (var i = items.length - 1; i >= 0; i--) {
+      var x = items[i] || {};
+      var text = x.editedSummary || x.summary || x.text || x.content || (x.summary && x.summary.text);
+      if (typeof text === 'string' && text.trim()) return text.trim();
+    }
+    return '';
+  }
+
+  function fetchSummaryWithToken(token) {
+    var conversationId = pendingSummaryConversationId;
+    if (!conversationId || !token) return;
+    summaryPollAttempt += 1;
+    var url = 'https://api.mypurecloud.de/api/v2/conversations/' + encodeURIComponent(conversationId) + '/summaries';
+    log('Summary-Test: Abruf Versuch ' + summaryPollAttempt + ' fuer ' + conversationId);
+    fetch(url, { headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' } })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + r.statusText);
+        return r.json();
+      })
+      .then(function (data) {
+        var text = extractSummaryText(data);
+        if (text) {
+          log('SUMMARY GEFUNDEN: ' + text);
+          console.log('[CTI Summary Test]', { conversationId: conversationId, summary: text, raw: data });
+          pendingSummaryConversationId = null;
+          summaryPollAttempt = 0;
+          return;
+        }
+        if (summaryPollAttempt < 8) {
+          log('Summary-Test: noch keine Summary, neuer Versuch in 2 s');
+          setTimeout(function () { fetchSummaryWithToken(token); }, 2000);
+        } else {
+          log('Summary-Test: nach 8 Versuchen keine Summary gefunden');
+          console.log('[CTI Summary Test] Raw response without summary', data);
+        }
+      })
+      .catch(function (err) {
+        log('Summary-Test ERROR: ' + err.message);
+        if (summaryPollAttempt < 8) setTimeout(function () { fetchSummaryWithToken(token); }, 2000);
+      });
+  }
 
   function log(text) {
     if (!DEBUG) return;
@@ -481,7 +540,7 @@
     }
     if (ended && !c.ended) {
       c.ended = true;
-      if (c.accepted) { sapEvent('END', id, ani, dir); setMode('acw'); }
+      if (c.accepted) { sapEvent('END', id, ani, dir); setMode('acw'); requestSummary(id); }
       else { setMode('idle', ''); }
     }
     updateEmpty();
@@ -529,6 +588,15 @@
           }
         } else {
           log('<- userAction ' + JSON.stringify(d).slice(0, 200));
+        }
+        break;
+      case 'authToken':
+        summaryTokenRequested = false;
+        if (d.token) {
+          log('Summary-Test: AuthToken erhalten');
+          fetchSummaryWithToken(d.token);
+        } else {
+          log('Summary-Test ERROR: kein AuthToken erhalten');
         }
         break;
       case 'contactSearch':
@@ -611,6 +679,6 @@
   log('iFrame wird geladen');
 })();
 </script>
-<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 06.11.2026 · v10.1 Script-Immer-Aus</div>
+<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 06.11.2026 · v10.2 Summary-Test</div>
 </body>
 </html>
