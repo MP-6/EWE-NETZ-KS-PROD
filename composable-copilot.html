@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Genesys Composable Desktop - Copilot-Test (apps.mypurecloud.de)</title>
+<style>
+  html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; font-size: 13px; background: #eef1f5; color: #1d2d3e; }
+  .wrap { display: flex; flex-direction: column; height: 100%; }
+  .top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 10px; background: #fff; border-bottom: 1px solid #dde3ea; }
+  .top input { padding: 5px; width: 330px; }
+  .top button { padding: 6px 10px; border: 0; border-radius: 6px; background: #005f96; color: #fff; cursor: pointer; }
+  .chip { padding: 3px 8px; border-radius: 10px; font-size: 12px; background: #e3e8ee; }
+  .chip.ok { background: #d3f1e6; color: #0b6b4c; }
+  .chip.bad { background: #f8d9d6; color: #9b2c24; }
+  #broker { width: 100%; height: 64px; border: 0; background: #fff; border-bottom: 1px solid #dde3ea; }
+  .main { flex: 1 1 auto; min-height: 0; display: flex; gap: 8px; padding: 8px; }
+  #compBox { width: 360px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+  #compBox iframe { width: 100%; height: 100%; border: 0; }
+  #log { flex: 1 1 auto; margin: 0; padding: 8px; overflow: auto; background: #fff; border-radius: 8px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<!--
+  Test des Genesys Composable Desktop (Copilot als eigenstaendige Komponente), Region apps.mypurecloud.de.
+  Aufbau wie "gadget-quickstart.html" aus MyPureCloud/crm-composable-desktop-examples.
+  Aufruf:   composable-copilot.html?interactionId=<Conversation-ID eines AKTIVEN Gespraechs>
+  Optionen: ?name=<Komponentenname> | ?cid=<Komponenten-ID> | ?size=small | ?region=mypurecloud.de
+  Die Integrations-ID wird von diesem Beispiel nicht benoetigt (Integration: 3c4712f7-b4e8-402a-af7d-b0f18cfadb5c).
+-->
+<div class="wrap">
+  <div class="top">
+    <input id="iid" placeholder="Interaktions-ID (Conversation-ID eines aktiven Gespraechs)">
+    <button id="btnSet">Interaktion setzen</button>
+    <button id="btnReg">Neu registrieren</button>
+    <span class="chip" id="chipReg">Registrierung: offen</span>
+    <span class="chip" id="chipAuth">Anmeldung: offen</span>
+  </div>
+  <iframe id="broker" title="Composable Desktop Broker"></iframe>
+  <div class="main">
+    <div id="compBox"></div>
+    <pre id="log"></pre>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ===== Konfiguration =====
+  var q = new URLSearchParams(location.search);
+  var REGION = q.get('region') || 'mypurecloud.de';
+  var BASE = 'https://apps.' + REGION + '/crm-embeddable-desktop/';
+  var COMPONENT_ID = q.get('cid') || ('ewe-test-' + Math.random().toString(36).slice(2, 10));   // frei waehlbarer String
+  var COMPONENT_NAME = q.get('name') || 'GENESYS_CLOUD_COMPOSABLE_DESKTOP';   // ggf. den von Genesys genannten Namen verwenden
+  var SIZE = q.get('size') || 'small';
+  // =========================
+
+  var logEl = document.getElementById('log');
+  function log(t) { logEl.textContent += '[' + new Date().toLocaleTimeString() + '] ' + t + '\n'; logEl.scrollTop = logEl.scrollHeight; }
+  function chip(id, text, cls) { var e = document.getElementById(id); e.textContent = text; e.className = 'chip ' + (cls || ''); }
+
+  var broker = document.getElementById('broker');
+  var registered = false, regSent = false, authenticated = false;
+  document.getElementById('iid').value = q.get('interactionId') || '';
+
+  function post(type, data) {
+    broker.contentWindow.postMessage({ type: 'Genesys.ComposableDesktop.' + type, data: data }, '*');
+    log('-> ' + type + ' ' + JSON.stringify(data));
+  }
+  function register() { regSent = true; post('REGISTRATION_REQUEST', { componentId: COMPONENT_ID, name: COMPONENT_NAME }); }
+  function setInteraction() {
+    var id = document.getElementById('iid').value.trim();
+    if (!id) { log('Bitte eine Interaktions-ID (Conversation-ID eines aktiven Gespraechs) eintragen.'); return; }
+    post('SET_INTERACTION', { componentId: COMPONENT_ID, scope: 'default', interactionId: id });
+  }
+
+  window.addEventListener('message', function (e) {
+    if (e.source !== broker.contentWindow) return;
+    var m = e.data;
+    try { if (typeof m === 'string') m = JSON.parse(m); } catch (err) { return; }
+    if (!m || !m.type || String(m.type).indexOf('Genesys.ComposableDesktop.') !== 0) return;
+    var t = String(m.type).replace('Genesys.ComposableDesktop.', ''), d = m.data || {};
+    log('<- ' + t + ' ' + JSON.stringify(d).slice(0, 400));
+    if (t === 'REGISTRATION_RESPONSE') {
+      registered = true; chip('chipReg', 'Registrierung: ok', 'ok');
+      post('GET_STATUS', { componentId: COMPONENT_ID, contextId: 'after-register' });
+    } else if (t === 'STATUS_UPDATE') {
+      if (d.contextId === 'handshake' || d.contextId === 'initial') { if (!regSent) register(); return; }
+      authenticated = d.authenticated === true;
+      chip('chipAuth', authenticated ? 'Anmeldung: ok' : 'Anmeldung: noetig (siehe Leiste oben)', authenticated ? 'ok' : 'bad');
+      if (registered && authenticated && document.getElementById('iid').value.trim()) setInteraction();
+    } else if (/DENIED|ERROR|FAIL/i.test(t)) {
+      chip('chipReg', 'Fehler: ' + t, 'bad');
+    }
+  });
+
+  document.getElementById('btnSet').onclick = setInteraction;
+  document.getElementById('btnReg').onclick = function () { registered = false; register(); };
+
+  log('Komponenten-ID: ' + COMPONENT_ID + ' | Name: ' + COMPONENT_NAME + ' | Region: ' + REGION);
+  var comp = document.createElement('iframe');
+  comp.allow = 'camera *; microphone *; clipboard-write *; autoplay *';
+  comp.src = BASE + 'component.html#/copilot?size=' + encodeURIComponent(SIZE) + '&scope=default';
+  document.getElementById('compBox').appendChild(comp);
+
+  broker.onload = function () { log('Broker geladen'); post('GET_STATUS', { componentId: COMPONENT_ID, contextId: 'handshake' }); };
+  broker.src = BASE + 'index.html?show-broker-ui=true&mini-display-type=true';
+  setTimeout(function () { if (!registered) chip('chipReg', 'Registrierung: keine Antwort (Konsole pruefen)', 'bad'); }, 8000);
+})();
+</script>
+</body>
+</html>
