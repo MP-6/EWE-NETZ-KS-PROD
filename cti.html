@@ -6,139 +6,177 @@
 <title>Genesys CTI (SAP Live Interaction Widget)</title>
 <style>
   :root {
-    --phone-h: 150px;
-    --bg: #eef1f5; --bar: #ffffff; --card: #ffffff;
-    --text: #1d2d3e; --muted: #6a7a8c; --line: #dde3ea;
-    --accent: #005f96; --ok: #1b9e77; --warn: #f59a32;
+    --bg: #e9eef4; --card: #ffffff; --text: #1d2d3e; --muted: #6a7a8c; --line: #dde3ea;
+    --accent: #0a6fb3; --ok: #19a974; --warn: #f59a32; --danger: #e5484d;
+    --rail1: #0d2740; --rail2: #164067;
   }
   body[data-theme="dark"] {
-    --bg: #0f1b27; --bar: #152332; --card: #1a2b3c;
-    --text: #e8eef5; --muted: #93a5b8; --line: #2a3e53;
-    --accent: #4aa3df; --ok: #3cc79a; --warn: #f7b055;
+    --bg: #0b1520; --card: #16273a; --text: #e8eef5; --muted: #93a5b8; --line: #2a3e53; --accent: #4aa3df;
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
   body { font-family: "72", "Segoe UI", system-ui, -apple-system, Arial, sans-serif; font-size: 13px; background: var(--bg); color: var(--text); }
-  .app { display: flex; flex-direction: column; height: 100%; }
+  .app { position: relative; display: flex; height: 100%; max-width: var(--app-w, none); }
 
-  /* ---- Kopfleiste ---- */
-  .bar { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-         padding: 8px 12px; background: var(--bar); border-bottom: 1px solid var(--line); }
-  .state { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: #9aa7b4; flex: none; --pulse: 27,158,119; }
+  /* ---- Seitenleiste ---- */
+  .rail { flex: 0 0 68px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 10px 0 8px;
+          background: linear-gradient(180deg, var(--rail1), var(--rail2)); color: #fff; z-index: 20; }
+  .statusbtn { width: 60px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 9px 3px 8px;
+               background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.16); border-radius: 16px; color: #fff; cursor: pointer;
+               transition: background .15s, transform .12s; }
+  .statusbtn:hover { background: rgba(255,255,255,.18); }
+  .statusbtn:active { transform: scale(.97); }
+  .ring { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); display: flex; align-items: center; justify-content: center; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: #9aa7b4; flex: none; --pulse: 25,169,116; }
   .dot.ready, .dot.p-green { background: var(--ok); }
   .dot.p-orange { background: var(--warn); }
-  .dot.p-red { background: #d9534f; }
+  .dot.p-red { background: var(--danger); }
   .dot.p-grey { background: #9aa7b4; }
   .dot.ringing { background: var(--warn); --pulse: 245,154,50; animation: pulse 1s infinite; }
   .dot.active { background: var(--ok); animation: pulse 2s infinite; }
   @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(var(--pulse), .55); }
+    0% { box-shadow: 0 0 0 0 rgba(var(--pulse), .6); }
     70% { box-shadow: 0 0 0 9px rgba(var(--pulse), 0); }
     100% { box-shadow: 0 0 0 0 rgba(var(--pulse), 0); }
   }
-  .stext { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-  .stext strong { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .status-wrap { min-width: 170px; }
-  #statusSelect { appearance: none; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; font-weight: 600; padding: 1px 22px 1px 0; cursor: pointer; max-width: 240px;
-    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-    background-position: calc(100% - 10px) 55%, calc(100% - 6px) 55%; background-size: 4px 4px, 4px 4px; background-repeat: no-repeat; }
-  #statusSelect:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-  #statusSelect option { color: #1d2d3e; background: #fff; }
-  .stext span { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tools { display: flex; align-items: center; gap: 6px; flex: none; }
-  .tools button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card);
-                  color: var(--text); border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; transition: border-color .15s, background .15s; }
-  .tools button:hover { border-color: var(--accent); }
-  .tools button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .tools svg { width: 14px; height: 14px; fill: currentColor; }
-  .zl { min-width: 38px; text-align: center; font-size: 11px; color: var(--muted); }
-  .call-actions { display: none; align-items: center; gap: 6px; }
+  .slabel { font-size: 10px; line-height: 1.15; font-weight: 600; text-align: center; max-width: 54px; overflow: hidden;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+  .callinfo { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .ctimer { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ctimer:empty, .cnum:empty { display: none; }
+  .cnum { max-width: 62px; font-size: 9px; opacity: .75; text-align: center; word-break: break-all; line-height: 1.15; }
+  .call-actions { display: none; flex-direction: column; gap: 12px; margin-top: 2px; }
   .call-actions.visible { display: flex; }
-  .call-actions button { border: 0; border-radius: 8px; padding: 6px 10px; color: #fff; font-weight: 600; cursor: pointer; }
-  .call-actions .answer { background: var(--ok); }
-  .call-actions .hangup { background: #c0392b; }
+  .rbtn { width: 48px; height: 48px; border-radius: 50%; border: 0; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 4px 12px rgba(0,0,0,.35); transition: transform .12s, filter .12s; }
+  .rbtn:hover { transform: scale(1.08); filter: brightness(1.08); }
+  .rbtn svg { width: 22px; height: 22px; fill: currentColor; }
+  .rbtn.answer { background: var(--ok); animation: ringpulse 1.2s infinite; }
+  .rbtn.hangup { background: var(--danger); }
+  .rbtn.hangup svg { transform: rotate(135deg); }
+  @keyframes ringpulse { 0%,100% { box-shadow: 0 4px 12px rgba(0,0,0,.35), 0 0 0 0 rgba(25,169,116,.55); } 60% { box-shadow: 0 4px 12px rgba(0,0,0,.35), 0 0 0 10px rgba(25,169,116,0); } }
+  .spacer { flex: 1; }
+  .tabs { display: flex; flex-direction: column; gap: 8px; }
+  .tab { position: relative; width: 56px; padding: 8px 2px 6px; border-radius: 14px; border: 1px solid transparent; background: transparent;
+         color: rgba(255,255,255,.72); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;
+         font-size: 9px; font-weight: 600; transition: background .15s, color .15s; }
+  .tab:hover { background: rgba(255,255,255,.10); color: #fff; }
+  .tab svg { width: 22px; height: 22px; fill: currentColor; }
+  .tab.on { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.26); color: #fff; }
+  .tab.alert::after { content: ''; position: absolute; top: 5px; right: 10px; width: 9px; height: 9px; border-radius: 50%;
+                      background: var(--warn); --pulse: 245,154,50; animation: pulse 1s infinite; }
+  .tab.dbg { display: none; font-size: 15px; }
+  body.debug .tab.dbg { display: flex; }
+  .ver { display: flex; flex-direction: column; align-items: center; font-size: 9px; line-height: 1.25; opacity: .65; text-align: center; padding: 0 2px; }
+  .ver b { font-size: 10px; }
 
-  /* ---- Telefon-Streifen ---- */
-  .phone { flex: 0 0 auto; height: var(--phone-h); margin: 8px 8px 0; border-radius: 10px; overflow: hidden;
-           background: var(--card); box-shadow: 0 1px 4px rgba(0,0,0,.18); transition: height .25s ease, margin .25s ease; }
-  .phone.collapsed { height: 0; margin: 0 8px; box-shadow: none; }
-  .phone { display: none !important; }
-  .phone iframe { width: 100%; height: 100%; border: 0; display: block; }
-
-  /* ---- Script & Copilot ---- */
-  .inter { position: relative; flex: 1 1 auto; min-height: 0; margin: 8px; border-radius: 10px; overflow: hidden;
-           background: var(--card); box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+  /* ---- Hauptbereich: Copilot und Nachbearbeitung nutzen jeweils die volle Hoehe ---- */
+  .main { position: relative; flex: 1 1 auto; min-width: 0; margin: 8px; }
+  .inter, .acwbox { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; background: var(--card);
+                    box-shadow: 0 2px 10px rgba(0,0,0,.18); }
   .scalebox { width: 100%; height: 100%; transform-origin: 0 0; }
-  .scalebox iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .scalebox iframe, .acwbox iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .acwbox { z-index: 5; transform: translateX(calc(100% + 16px)); pointer-events: none; transition: transform .32s cubic-bezier(.2,.8,.2,1); }
+  .acwbox.open { transform: none; pointer-events: auto; }
   .empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
            gap: 8px; text-align: center; padding: 24px; background: var(--card); color: var(--muted);
            pointer-events: none; transition: opacity .25s, visibility .25s; }
   .empty.hidden { opacity: 0; visibility: hidden; }
   .empty svg { width: 56px; height: 56px; fill: var(--accent); opacity: .85; }
   .empty h2 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text); }
-  .empty p { margin: 0; max-width: 320px; line-height: 1.45; }
+  .empty p { margin: 0; max-width: 260px; line-height: 1.45; }
 
-  /* ---- Debug-Leiste (nur mit ?debug=1) ---- */
-  .debugbar { display: none; margin: 8px 8px 0; padding: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
-  body.debug .debugbar { display: block; }
+  /* ---- Genesys-Anmeldung (Telefon-iFrame nur bei Bedarf sichtbar) ---- */
+  .phone { display: none; position: absolute; left: 0; right: 0; top: 0; height: 300px; z-index: 30; border-radius: 16px; overflow: hidden;
+           background: var(--card); box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  .phone.login { display: block; }
+  .phonehead { height: 30px; line-height: 30px; padding: 0 12px; font-weight: 600; font-size: 12px; background: var(--accent); color: #fff; }
+  .phone iframe { width: 100%; height: calc(100% - 30px); border: 0; display: block; }
+
+  /* ---- Status-Menue ---- */
+  .pop { display: none; position: absolute; left: 76px; top: 10px; width: 232px; max-height: calc(100% - 20px); overflow: auto; z-index: 60;
+         background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 6px;
+         box-shadow: 0 12px 32px rgba(0,0,0,.35); }
+  .pop.open { display: block; }
+  .pitem { display: flex; align-items: center; width: 100%; text-align: left; border: 0; background: transparent; color: inherit;
+           font: inherit; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+  .pitem:hover { background: var(--bg); }
+  .pitem.on { font-weight: 700; background: var(--bg); }
+  .pitem:disabled { opacity: .4; cursor: default; }
+  .pgroup { padding: 8px 10px 2px; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+
+  /* ---- Debug-Fenster (nur mit ?debug=1, Zahnrad in der Seitenleiste) ---- */
+  .debugbar { display: none; position: absolute; left: 0; right: 0; bottom: 0; max-height: 78%; overflow: auto; z-index: 40; padding: 8px;
+              background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  body.debug.dbgopen .debugbar { display: block; }
   .row { display: flex; gap: 6px; margin: 4px 0; }
   .row input, .row select { flex: 1; min-width: 0; padding: 4px; }
   .row button { padding: 4px 8px; cursor: pointer; border: 0; border-radius: 4px; background: var(--accent); color: #fff; }
   .row button.ok { background: #00A888; }
   .row button.danger { background: #c0392b; }
   .row button.sap { background: #555; }
-  .info { font-size: 12px; color: var(--muted); }
-  .log { height: 110px; overflow: auto; background: var(--bg); border: 1px solid var(--line); padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
-
-  /* ---- Script-Spalte abschneiden: iFrame nach links verschieben und um denselben Betrag verbreitern ---- */
-  .header-tools { display: flex; align-items: center; gap: 6px; flex: none; }
-  .header-tools button { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px;
-                         padding: 5px 10px; font-size: 12px; cursor: pointer; }
-  .header-tools button:hover { border-color: var(--accent); }
   .row .lbl { white-space: nowrap; font-size: 12px; color: var(--muted); align-self: center; }
-
-  /* ---- Feste Breite: Inhalt bleibt auch in einem breit aufgezogenen SAP-Fenster so schmal wie eingestellt ---- */
-  .app { max-width: var(--app-w, none); }
-  .state { flex: 1 1 0; min-width: 0; }
-  .call-actions { flex: none; }
-  #statusSelect { max-width: 100%; }
-
-  /* ---- ACW-Fenster (Nachbearbeitung) aus dem Composable Desktop ---- */
-  .acwbox { flex: 0 0 auto; height: 0; margin: 0 8px; border-radius: 10px; overflow: hidden; background: var(--card);
-            box-shadow: 0 1px 4px rgba(0,0,0,.18); transition: height .25s ease, margin .25s ease; }
-  .acwbox.open { height: var(--acw-h, 320px); margin: 0 8px 8px; }
-  .acwbox iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .info { font-size: 12px; color: var(--muted); }
+  .log { height: 140px; overflow: auto; background: var(--bg); border: 1px solid var(--line); padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <!-- Provider URL fuer das SAP Live Interaction Widget.
-     Optionen: ?debug=1 | ?phoneHeight=300 | ?theme=dark|light|auto | ?phone=collapsed | ?sap=<format> -->
-<div class="app">
+     Optionen: ?composable=1 | ?acw=acw|always|off | ?debug=1 (Zahnrad in der Seitenleiste) | ?theme=dark|light|auto
+               ?width=340 (feste Breite, 0 = volle Breite) | ?phone=show (Genesys-Anmeldung zeigen) | ?sap=<format> | ?name=<Komponentenname> -->
+<div class="app" id="app">
 
-  <header class="bar">
-    <div class="state">
-      <span class="dot" id="dot"></span>
-      <div class="stext status-wrap">
-        <select id="statusSelect" aria-label="Genesys-Status ändern" title="Genesys-Status ändern">
-          <option value="">Nicht verbunden</option>
-        </select>
-        <span id="stSub"></span>
-      </div>
-    </div>
+  <aside class="rail">
+    <button type="button" class="statusbtn" id="statusBtn" title="Genesys-Status ändern" aria-haspopup="true">
+      <span class="ring"><span class="dot" id="dot"></span></span>
+      <span class="slabel" id="stLabel">Nicht verbunden</span>
+    </button>
+    <select id="statusSelect" hidden aria-label="Genesys-Status">
+      <option value="">Nicht verbunden</option>
+    </select>
+    <span id="stSub" hidden></span>
+
+    <div class="callinfo"><div class="ctimer" id="callTimer"></div><div class="cnum" id="callNum"></div></div>
     <div class="call-actions" id="callActions">
-      <button type="button" class="answer" id="btnHeaderAnswer">Annehmen</button>
-      <button type="button" class="hangup" id="btnHeaderHangup">Auflegen</button>
+      <button type="button" class="rbtn answer" id="btnHeaderAnswer" title="Anruf annehmen" aria-label="Anruf annehmen"><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button>
+      <button type="button" class="rbtn hangup" id="btnHeaderHangup" title="Auflegen" aria-label="Auflegen"><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button>
     </div>
 
-  </header>
+    <div class="spacer"></div>
+    <nav class="tabs" id="tabs">
+      <button type="button" class="tab on" id="tabCopilot" title="Agent Copilot"><svg viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg><span>Copilot</span></button>
+      <button type="button" class="tab" id="tabAcw" title="Nachbearbeitung"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg><span>Nachbearb.</span></button>
+    </nav>
+    <button type="button" class="tab dbg" id="btnDebug" title="Debug-Fenster">&#9881;<span>Debug</span></button>
+    <div class="ver" id="ctiVersion"></div>
+  </aside>
 
-  <section class="phone" id="phone">
-    <iframe id="genesysFrame"
-            allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
-            title="Genesys Cloud Embeddable Framework"></iframe>
-  </section>
+  <div class="main">
+    <section class="phone" id="phone">
+      <div class="phonehead">Bitte bei Genesys anmelden</div>
+      <iframe id="genesysFrame"
+              allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+              title="Genesys Cloud Embeddable Framework"></iframe>
+    </section>
+
+    <main class="inter">
+      <div class="scalebox" id="scalebox">
+        <iframe id="genesysInteractionFrame"
+                allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+                title="Genesys Cloud Agent Copilot"></iframe>
+      </div>
+      <div class="empty" id="empty">
+        <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+        <h2 id="emptyTitle">Verbinde mit Genesys &hellip;</h2>
+        <p id="emptyText">Bitte im Anmeldefenster anmelden.</p>
+      </div>
+    </main>
+
+    <section class="acwbox" id="acwBox">
+      <iframe id="acwFrame" title="Genesys Cloud Nachbearbeitung (ACW)"
+              allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"></iframe>
+    </section>
 
   <div class="debugbar">
     <div class="info" id="ctiInfo">Framework: nicht verbunden | Interaktion: -</div>
@@ -172,24 +210,9 @@
     <div class="log" id="ctiLog"></div>
   </div>
 
-  <main class="inter">
-    <div class="scalebox" id="scalebox">
-      <iframe id="genesysInteractionFrame"
-              allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
-              title="Genesys Cloud Agent Copilot"></iframe>
-    </div>
-    <div class="empty" id="empty">
-      <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
-      <h2 id="emptyTitle">Verbinde mit Genesys &hellip;</h2>
-      <p id="emptyText">Bitte oben im Telefonfenster anmelden.</p>
-    </div>
-  </main>
+  </div>
 
-  <section class="acwbox" id="acwBox">
-    <iframe id="acwFrame" title="Genesys Cloud Nachbearbeitung (ACW)"
-            allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"></iframe>
-  </section>
-
+  <div class="pop" id="statusPop" role="menu"></div>
 </div>
 
 <script>
@@ -228,7 +251,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '13.11.2026 · v12 Composable+ACW';
+  var CTI_VERSION = '17.11.2026 · v13 Rail';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -322,13 +345,14 @@
     if (currentKey && known.indexOf(currentKey) < 0) addOption(sel, currentKey);
   }
   document.getElementById('statusSelect').addEventListener('change', function () {
+    var selEl = this;
     var key = this.value;
     var id = statusId(key);
-    if (!id) { this.value = ui.presence || ''; return; }
+    if (!id) { selEl.value = ui.presence || ''; return; }
     log('-> Statuswechsel angefordert: ' + key + ' / ' + id);
     send('updateStatus', { id: id });
     // Auswahl erst wieder dauerhaft umstellen, wenn Genesys den neuen Status zurueckmeldet.
-    setTimeout(function () { if (ui.presence !== key) { sel.value = ui.presence || ''; log('Statuswechsel noch nicht von Genesys bestaetigt'); } }, 1500);
+    setTimeout(function () { if (ui.presence !== key) { selEl.value = ui.presence || ''; log('Statuswechsel noch nicht von Genesys bestaetigt'); } }, 1500);
   });
   function renderState() {
     var cls = 'dot', title, sub = '';
@@ -355,14 +379,26 @@
     if (!found || statusSelect.options.length === 1) buildStatusOptions(currentKey, currentLabel);
     statusSelect.value = currentKey;
     document.getElementById('stSub').textContent = sub;
+    document.getElementById('stLabel').textContent = title;
+    document.getElementById('statusBtn').title = title + (sub ? ' \u2013 ' + sub : '') + ' (Status \u00e4ndern)';
+    var tmr = document.getElementById('callTimer');
+    tmr.textContent = ui.mode === 'active' ? mmss(Date.now() - ui.t0)
+      : ui.mode === 'acw' ? mmss(Date.now() - ui.t1)
+      : ui.mode === 'ringing' ? 'Eingehend' : (ui.mode === 'dialing' ? 'W\u00e4hlt' : '');
+    var numEl = document.getElementById('callNum');
+    numEl.textContent = ui.mode !== 'idle' ? (ui.number || '') : '';
+    numEl.title = numEl.textContent;
     var actions = document.getElementById('callActions');
     var answer = document.getElementById('btnHeaderAnswer');
     var hangup = document.getElementById('btnHeaderHangup');
     var showAnswer = ui.mode === 'ringing';
-    var showHangup = ui.mode === 'active' || ui.mode === 'dialing';
+    var showHangup = ui.mode === 'ringing' || ui.mode === 'active' || ui.mode === 'dialing';
     answer.style.display = showAnswer ? '' : 'none';
     hangup.style.display = showHangup ? '' : 'none';
+    hangup.title = ui.mode === 'ringing' ? 'Anruf ablehnen' : 'Auflegen';
+    hangup.setAttribute('aria-label', hangup.title);
     actions.classList.toggle('visible', showAnswer || showHangup);
+    if (typeof updateAcwBox === 'function') updateAcwBox();
   }
 
   function updateEmpty() {
@@ -388,6 +424,7 @@
 
   function setMode(mode, number) {
     ui.mode = mode;
+    acwManual = null;
     if (number !== undefined) ui.number = number || '';
     clearInterval(ui.tick);
     if (mode === 'active') { ui.t0 = Date.now(); ui.tick = setInterval(renderState, 1000); }
@@ -523,6 +560,7 @@
       case 'ready':
         state.ready = true;
         log('<- ready');
+        phoneEl.classList.remove('login');
         if (!interactionFrame.src && !COMPOSABLE) { interactionFrame.src = INTERACTION_SRC; log('Interaktionsfenster wird geladen'); }
         renderState(); updateEmpty();
         break;
@@ -612,11 +650,17 @@
   var ACW_MODE = params.get('acw') || 'acw';
   var acwH = parseInt(params.get('acwH'), 10);
   if (acwH > 120) document.documentElement.style.setProperty('--acw-h', acwH + 'px');
+  var acwManual = null;   // null = automatisch (Nachbearbeitung), true/false = manuell per Tab gewaehlt
   function updateAcwBox() {
     var box = document.getElementById('acwBox');
     if (!box) return;
-    var show = COMPOSABLE && ACW_MODE !== 'off' && (ui.mode === 'acw' || (ACW_MODE === 'always' && ui.mode === 'active'));
+    var enabled = COMPOSABLE && ACW_MODE !== 'off';
+    var auto = enabled && (ui.mode === 'acw' || (ACW_MODE === 'always' && ui.mode === 'active'));
+    var show = enabled && (acwManual === null ? auto : acwManual);
     box.classList.toggle('open', show);
+    document.getElementById('tabCopilot').classList.toggle('on', !show);
+    document.getElementById('tabAcw').classList.toggle('on', show);
+    document.getElementById('tabAcw').classList.toggle('alert', enabled && ui.mode === 'acw' && !show);
   }
 
   function cdPost(type, data) {
@@ -694,11 +738,66 @@
   phoneEl.classList.add('collapsed');
   renderState();
   updateEmpty();
+  // ---------- Seitenleiste: Status-Menue, Tabs, Debug, Version, Anmeldung ----------
+  var statusPop = document.getElementById('statusPop');
+  function closeStatusPop() { statusPop.classList.remove('open'); }
+  function renderStatusPop() {
+    var sel = document.getElementById('statusSelect');
+    statusPop.innerHTML = '';
+    function item(opt) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pitem' + (opt.value === ui.presence ? ' on' : '');
+      b.disabled = !!opt.disabled;
+      b.textContent = opt.textContent;
+      b.onclick = function () {
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event('change'));
+        closeStatusPop();
+      };
+      return b;
+    }
+    Array.prototype.forEach.call(sel.children, function (ch) {
+      if (ch.tagName === 'OPTGROUP') {
+        var h = document.createElement('div');
+        h.className = 'pgroup';
+        h.textContent = ch.label;
+        statusPop.appendChild(h);
+        Array.prototype.forEach.call(ch.children, function (o) { statusPop.appendChild(item(o)); });
+      } else if (ch.value) {
+        statusPop.appendChild(item(ch));
+      }
+    });
+  }
+  document.getElementById('statusBtn').onclick = function (e) {
+    e.stopPropagation();
+    if (statusPop.classList.contains('open')) { closeStatusPop(); return; }
+    renderStatusPop();
+    statusPop.classList.add('open');
+  };
+  document.addEventListener('click', function (e) { if (!statusPop.contains(e.target)) closeStatusPop(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeStatusPop(); });
+
+  document.getElementById('tabCopilot').onclick = function () { acwManual = false; updateAcwBox(); };
+  document.getElementById('tabAcw').onclick = function () { acwManual = true; updateAcwBox(); };
+  if (!COMPOSABLE || ACW_MODE === 'off') document.getElementById('tabs').style.display = 'none';
+  document.getElementById('btnDebug').onclick = function () { document.body.classList.toggle('dbgopen'); };
+
+  var verEl = document.getElementById('ctiVersion');
+  var verParts = CTI_VERSION.split(' \u00b7 ');
+  var verB = document.createElement('b'); verB.textContent = verParts[1] || CTI_VERSION;
+  var verS = document.createElement('span'); verS.textContent = verParts[0] || '';
+  verEl.appendChild(verB); verEl.appendChild(verS);
+  verEl.title = 'CTI-Version: ' + CTI_VERSION;
+
+  // Genesys-Anmeldung: Das Telefon-iFrame bleibt unsichtbar, erscheint aber als Overlay, wenn noch keine Verbindung steht.
+  if (params.get('phone') === 'show') phoneEl.classList.add('login');
+  setTimeout(function () { if (!state.ready) phoneEl.classList.add('login'); }, 4000);
+
   if (COMPOSABLE) cdStart();
   frame.src = FRAME_SRC;
   log('iFrame wird geladen');
 })();
 </script>
-<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 13.11.2026 · v12 Composable+ACW</div>
 </body>
 </html>
