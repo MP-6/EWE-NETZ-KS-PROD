@@ -103,6 +103,12 @@
   .state { flex: 1 1 0; min-width: 0; }
   .call-actions { flex: none; }
   #statusSelect { max-width: 100%; }
+
+  /* ---- ACW-Fenster (Nachbearbeitung) aus dem Composable Desktop ---- */
+  .acwbox { flex: 0 0 auto; height: 0; margin: 0 8px; border-radius: 10px; overflow: hidden; background: var(--card);
+            box-shadow: 0 1px 4px rgba(0,0,0,.18); transition: height .25s ease, margin .25s ease; }
+  .acwbox.open { height: var(--acw-h, 320px); margin: 0 8px 8px; }
+  .acwbox iframe { width: 100%; height: 100%; border: 0; display: block; }
 </style>
 </head>
 <body>
@@ -179,6 +185,11 @@
     </div>
   </main>
 
+  <section class="acwbox" id="acwBox">
+    <iframe id="acwFrame" title="Genesys Cloud Nachbearbeitung (ACW)"
+            allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"></iframe>
+  </section>
+
 </div>
 
 <script>
@@ -217,7 +228,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '13.11.2026 · v11 Composable';
+  var CTI_VERSION = '13.11.2026 · v12 Composable+ACW';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -386,6 +397,7 @@
     applyPhoneHeight();
     renderState();
     updateEmpty();
+    updateAcwBox();
   }
 
   // Das Genesys-Framework bleibt technisch geladen, aber visuell dauerhaft ausgeblendet.
@@ -594,6 +606,18 @@
   var CD_ID = params.get('cid') || ('ewe-cti-' + Math.random().toString(36).slice(2, 10));
   var CD_SIZE = params.get('size') || 'small';
   var cdBroker = null, cdRegSent = false, cdRegistered = false, cdAuth = false, cdSent = '';
+  // ACW-Fenster (Nachbearbeitung): eingebetteter Scope; ?acw=acw (Standard, nur in der Nachbearbeitung) | always (auch im Gespraech) | off
+  // Hoehe: ?acwH=320
+  var ACW_ID = 'scope-2';
+  var ACW_MODE = params.get('acw') || 'acw';
+  var acwH = parseInt(params.get('acwH'), 10);
+  if (acwH > 120) document.documentElement.style.setProperty('--acw-h', acwH + 'px');
+  function updateAcwBox() {
+    var box = document.getElementById('acwBox');
+    if (!box) return;
+    var show = COMPOSABLE && ACW_MODE !== 'off' && (ui.mode === 'acw' || (ACW_MODE === 'always' && ui.mode === 'active'));
+    box.classList.toggle('open', show);
+  }
 
   function cdPost(type, data) {
     if (!cdBroker || !cdBroker.contentWindow) return;
@@ -604,6 +628,7 @@
     if (!cdRegistered || !cdAuth || !state.interactionId || cdSent === state.interactionId) return;
     cdSent = state.interactionId;
     cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'default', interactionId: state.interactionId });
+    if (ACW_MODE !== 'off') cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'embedded', id: ACW_ID, interactionId: state.interactionId });
   }
   function cdShowBroker(show) { if (cdBroker) cdBroker.style.display = show ? 'block' : 'none'; }
   function cdHandle(e) {
@@ -636,6 +661,7 @@
     cdBroker.src = CD_BASE + 'index.html?show-broker-ui=true&mini-display-type=true';
     document.body.appendChild(cdBroker);
     interactionFrame.src = CD_BASE + 'component.html#/copilot?size=' + encodeURIComponent(CD_SIZE) + '&scope=default';
+    if (ACW_MODE !== 'off') document.getElementById('acwFrame').src = CD_BASE + 'component.html#/acw?size=' + encodeURIComponent(CD_SIZE) + '&scope=embedded&scopeId=' + ACW_ID;
     log('Composable Desktop: Komponente ' + CD_ID + ' (' + CD_NAME + ')');
     setTimeout(function () { if (!cdAuth) cdShowBroker(true); }, 6000);   // Anmeldung im Broker anzeigen, falls noetig
   }
@@ -673,6 +699,6 @@
   log('iFrame wird geladen');
 })();
 </script>
-<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 13.11.2026 · v11 Composable</div>
+<div id="ctiVersion" style="position:absolute;right:12px;bottom:5px;z-index:9999;font-size:10px;color:#7b8794;opacity:.85;pointer-events:none;">CTI-Version: 13.11.2026 · v12 Composable+ACW</div>
 </body>
 </html>
