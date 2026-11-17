@@ -118,6 +118,14 @@
   .row .lbl { white-space: nowrap; font-size: 12px; color: var(--muted); align-self: center; }
   .info { font-size: 12px; color: var(--muted); }
   .log { height: 140px; overflow: auto; background: var(--bg); border: 1px solid var(--line); padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
+
+  /* v15: Copilot und ACW unabhaengig schaltbar; bei beiden vertikal gestapelt */
+  .main { display: flex; flex-direction: column; gap: 8px; }
+  .inter, .acwbox { position: relative; inset: auto; flex: 1 1 100%; min-height: 0; width: 100%; display: none; transform: none; transition: none; pointer-events: auto; }
+  .main.show-copilot .inter { display: block; }
+  .main.show-acw .acwbox { display: block; }
+  .main.show-copilot.show-acw .inter, .main.show-copilot.show-acw .acwbox { flex-basis: 0; flex-grow: 1; }
+  .main.show-none::after { content: 'Keine Ansicht aktiv'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -152,7 +160,7 @@
     <div class="ver" id="ctiVersion"></div>
   </aside>
 
-  <div class="main">
+  <div class="main show-none">
     <section class="phone" id="phone">
       <div class="phonehead">Bitte bei Genesys anmelden</div>
       <iframe id="genesysFrame"
@@ -171,12 +179,12 @@
         <h2 id="emptyTitle">Verbinde mit Genesys &hellip;</h2>
         <p id="emptyText">Bitte im Anmeldefenster anmelden.</p>
       </div>
-    </main>
-
     <section class="acwbox" id="acwBox">
       <iframe id="acwFrame" title="Genesys Cloud Nachbearbeitung (ACW)"
               allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"></iframe>
     </section>
+    </main>
+
 
   <div class="debugbar">
     <div class="info" id="ctiInfo">Framework: nicht verbunden | Interaktion: -</div>
@@ -251,7 +259,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '17.11.2026 · v14 Rail+CopilotFix';
+  var CTI_VERSION = '17.11.2026 · v15 DualView';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -424,7 +432,7 @@
 
   function setMode(mode, number) {
     ui.mode = mode;
-    acwManual = null;
+    if (mode === 'idle') { copilotManual = false; acwManual = false; }
     if (number !== undefined) ui.number = number || '';
     clearInterval(ui.tick);
     if (mode === 'active') { ui.t0 = Date.now(); ui.tick = setInterval(renderState, 1000); }
@@ -651,17 +659,24 @@
   var ACW_MODE = params.get('acw') || 'acw';
   var acwH = parseInt(params.get('acwH'), 10);
   if (acwH > 120) document.documentElement.style.setProperty('--acw-h', acwH + 'px');
-  var acwManual = null;   // null = automatisch (Nachbearbeitung), true/false = manuell per Tab gewaehlt
+  var acwManual = false;
+  var copilotManual = false;
   function updateAcwBox() {
-    var box = document.getElementById('acwBox');
-    if (!box) return;
-    var enabled = COMPOSABLE && ACW_MODE !== 'off';
-    var auto = enabled && (ui.mode === 'acw' || (ACW_MODE === 'always' && ui.mode === 'active'));
-    var show = enabled && (acwManual === null ? auto : acwManual);
-    box.classList.toggle('open', show);
-    document.getElementById('tabCopilot').classList.toggle('on', !show);
-    document.getElementById('tabAcw').classList.toggle('on', show);
-    document.getElementById('tabAcw').classList.toggle('alert', enabled && ui.mode === 'acw' && !show);
+    var main = document.querySelector('.main');
+    var acwBox = document.getElementById('acwBox');
+    var inter = document.querySelector('.inter');
+    if (!main || !acwBox || !inter) return;
+    var conversationOpen = ui.mode !== 'idle' && !!state.interactionId;
+    var acwEnabled = COMPOSABLE && ACW_MODE !== 'off';
+    var showCopilot = conversationOpen && COMPOSABLE && copilotManual;
+    var showAcw = conversationOpen && acwEnabled && acwManual;
+    main.classList.toggle('show-copilot', showCopilot);
+    main.classList.toggle('show-acw', showAcw);
+    main.classList.toggle('show-none', !showCopilot && !showAcw);
+    acwBox.classList.toggle('open', showAcw);
+    document.getElementById('tabCopilot').classList.toggle('on', showCopilot);
+    document.getElementById('tabAcw').classList.toggle('on', showAcw);
+    document.getElementById('tabAcw').classList.toggle('alert', acwEnabled && ui.mode === 'acw' && !showAcw);
   }
 
   function cdPost(type, data) {
@@ -789,8 +804,8 @@
   document.addEventListener('click', function (e) { if (!statusPop.contains(e.target)) closeStatusPop(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeStatusPop(); });
 
-  document.getElementById('tabCopilot').onclick = function () { acwManual = false; updateAcwBox(); };
-  document.getElementById('tabAcw').onclick = function () { acwManual = true; updateAcwBox(); };
+  document.getElementById('tabCopilot').onclick = function () { if (ui.mode !== 'idle' && state.interactionId) copilotManual = !copilotManual; updateAcwBox(); };
+  document.getElementById('tabAcw').onclick = function () { if (ui.mode !== 'idle' && state.interactionId) acwManual = !acwManual; updateAcwBox(); };
   if (!COMPOSABLE || ACW_MODE === 'off') document.getElementById('tabs').style.display = 'none';
   document.getElementById('btnDebug').onclick = function () { document.body.classList.toggle('dbgopen'); };
 
