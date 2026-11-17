@@ -251,7 +251,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '17.11.2026 · v13 Rail';
+  var CTI_VERSION = '17.11.2026 · v14 Rail+CopilotFix';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -644,6 +644,7 @@
   var CD_ID = params.get('cid') || ('ewe-cti-' + Math.random().toString(36).slice(2, 10));
   var CD_SIZE = params.get('size') || 'small';
   var cdBroker = null, cdRegSent = false, cdRegistered = false, cdAuth = false, cdSent = '';
+  var cdSetTimer = null;
   // ACW-Fenster (Nachbearbeitung): eingebetteter Scope; ?acw=acw (Standard, nur in der Nachbearbeitung) | always (auch im Gespraech) | off
   // Hoehe: ?acwH=320
   var ACW_ID = 'scope-2';
@@ -668,11 +669,21 @@
     cdBroker.contentWindow.postMessage({ type: 'Genesys.ComposableDesktop.' + type, data: data }, '*');
     log('-> CD ' + type + ' ' + JSON.stringify(data));
   }
-  function cdSetInteraction() {
-    if (!cdRegistered || !cdAuth || !state.interactionId || cdSent === state.interactionId) return;
-    cdSent = state.interactionId;
-    cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'default', interactionId: state.interactionId });
-    if (ACW_MODE !== 'off') cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'embedded', id: ACW_ID, interactionId: state.interactionId });
+  function cdSetInteraction(force) {
+    if (!cdRegistered || !cdAuth || !state.interactionId) return;
+    var iid = state.interactionId;
+    if (!force && cdSent === iid) return;
+    cdSent = iid;
+    cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'default', interactionId: iid });
+    if (ACW_MODE !== 'off') cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'embedded', id: ACW_ID, interactionId: iid });
+
+    clearTimeout(cdSetTimer);
+    cdSetTimer = setTimeout(function () {
+      if (cdRegistered && cdAuth && state.interactionId === iid) {
+        cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'default', interactionId: iid });
+        if (ACW_MODE !== 'off') cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'embedded', id: ACW_ID, interactionId: iid });
+      }
+    }, 600);
   }
   function cdShowBroker(show) { if (cdBroker) cdBroker.style.display = show ? 'block' : 'none'; }
   function cdHandle(e) {
@@ -692,7 +703,7 @@
       }
       cdAuth = d.authenticated === true;
       cdShowBroker(!cdAuth || params.get('brokerUi') === '1');
-      if (cdAuth) cdSetInteraction();
+      if (cdAuth) cdSetInteraction(true);
     }
   }
   function cdStart() {
