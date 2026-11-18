@@ -3,108 +3,836 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Genesys Composable Desktop - Copilot-Test (apps.mypurecloud.de)</title>
+<title>Genesys CTI (SAP Live Interaction Widget)</title>
 <style>
-  html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; font-size: 13px; background: #eef1f5; color: #1d2d3e; }
-  .wrap { display: flex; flex-direction: column; height: 100%; }
-  .top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 10px; background: #fff; border-bottom: 1px solid #dde3ea; }
-  .top input { padding: 5px; width: 330px; }
-  .top button { padding: 6px 10px; border: 0; border-radius: 6px; background: #005f96; color: #fff; cursor: pointer; }
-  .chip { padding: 3px 8px; border-radius: 10px; font-size: 12px; background: #e3e8ee; }
-  .chip.ok { background: #d3f1e6; color: #0b6b4c; }
-  .chip.bad { background: #f8d9d6; color: #9b2c24; }
-  #broker { width: 100%; height: 64px; border: 0; background: #fff; border-bottom: 1px solid #dde3ea; }
-  .main { flex: 1 1 auto; min-height: 0; display: flex; gap: 8px; padding: 8px; }
-  #compBox { width: 360px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
-  #compBox iframe { width: 100%; height: 100%; border: 0; }
-  #log { flex: 1 1 auto; margin: 0; padding: 8px; overflow: auto; background: #fff; border-radius: 8px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
+  :root {
+    --bg: #e9eef4; --card: #ffffff; --text: #1d2d3e; --muted: #6a7a8c; --line: #dde3ea;
+    --accent: #0a6fb3; --ok: #19a974; --warn: #f59a32; --danger: #e5484d;
+    --rail1: #0d2740; --rail2: #164067;
+  }
+  body[data-theme="dark"] {
+    --bg: #0b1520; --card: #16273a; --text: #e8eef5; --muted: #93a5b8; --line: #2a3e53; --accent: #4aa3df;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body { font-family: "72", "Segoe UI", system-ui, -apple-system, Arial, sans-serif; font-size: 13px; background: var(--bg); color: var(--text); }
+  .app { position: relative; display: flex; height: 100%; max-width: var(--app-w, none); }
+
+  /* ---- Seitenleiste ---- */
+  .rail { flex: 0 0 68px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 10px 0 8px;
+          background: #1d232a; color: #fff; z-index: 20; }
+  .statusbtn { width: 60px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 9px 3px 8px;
+               background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.16); border-radius: 16px; color: #fff; cursor: pointer;
+               transition: background .15s, transform .12s; }
+  .statusbtn:hover { background: rgba(255,255,255,.18); }
+  .statusbtn:active { transform: scale(.97); }
+  .ring { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); display: flex; align-items: center; justify-content: center; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: #9aa7b4; flex: none; --pulse: 25,169,116; }
+  .dot.ready, .dot.p-green { background: var(--ok); }
+  .dot.p-orange { background: var(--warn); }
+  .dot.p-red { background: var(--danger); }
+  .dot.p-grey { background: #9aa7b4; }
+  .dot.ringing { background: var(--warn); --pulse: 245,154,50; animation: pulse 1s infinite; }
+  .dot.active { background: var(--ok); animation: pulse 2s infinite; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(var(--pulse), .6); }
+    70% { box-shadow: 0 0 0 9px rgba(var(--pulse), 0); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--pulse), 0); }
+  }
+  .slabel { font-size: 10px; line-height: 1.15; font-weight: 600; text-align: center; max-width: 54px; overflow: hidden;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+  .callinfo { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .ctimer { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ctimer:empty, .cnum:empty { display: none; }
+  .cnum { max-width: 62px; font-size: 9px; opacity: .75; text-align: center; word-break: break-all; line-height: 1.15; }
+  .call-actions { display: none; flex-direction: column; gap: 12px; margin-top: 2px; }
+  .call-actions.visible { display: flex; }
+  .rbtn { width: 48px; height: 48px; border-radius: 50%; border: 0; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 4px 12px rgba(0,0,0,.35); transition: transform .12s, filter .12s; }
+  .rbtn:hover { transform: scale(1.08); filter: brightness(1.08); }
+  .rbtn svg { width: 22px; height: 22px; fill: currentColor; }
+  .rbtn.answer { background: var(--ok); animation: ringpulse 1.2s infinite; }
+  .rbtn.hangup { background: var(--danger); }
+  .rbtn.hangup svg { transform: rotate(135deg); }
+  @keyframes ringpulse { 0%,100% { box-shadow: 0 4px 12px rgba(0,0,0,.35), 0 0 0 0 rgba(25,169,116,.55); } 60% { box-shadow: 0 4px 12px rgba(0,0,0,.35), 0 0 0 10px rgba(25,169,116,0); } }
+  .spacer { flex: 1; }
+  .tabs { display: flex; flex-direction: column; gap: 8px; }
+  .tab { position: relative; width: 56px; padding: 8px 2px 6px; border-radius: 14px; border: 1px solid transparent; background: transparent;
+         color: rgba(255,255,255,.72); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px;
+         font-size: 9px; font-weight: 600; transition: background .15s, color .15s; }
+  .tab:hover { background: rgba(255,255,255,.10); color: #fff; }
+  .tab svg { width: 22px; height: 22px; fill: currentColor; }
+  .tab.on { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.26); color: #fff; }
+  .tab.alert::after { content: ''; position: absolute; top: 5px; right: 10px; width: 9px; height: 9px; border-radius: 50%;
+                      background: var(--warn); --pulse: 245,154,50; animation: pulse 1s infinite; }
+  .tab.dbg { display: none; font-size: 15px; }
+  body.debug .tab.dbg { display: flex; }
+  .ver { display: flex; flex-direction: column; align-items: center; font-size: 9px; line-height: 1.25; opacity: .65; text-align: center; padding: 0 2px; }
+  .ver b { font-size: 10px; }
+
+  /* ---- Hauptbereich: Copilot und Nachbearbeitung nutzen jeweils die volle Hoehe ---- */
+  .main { position: relative; flex: 1 1 auto; min-width: 0; margin: 8px; }
+  .inter, .acwbox { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; background: var(--card);
+                    box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+  .scalebox { width: 100%; height: 100%; transform-origin: 0 0; }
+  .scalebox iframe, .acwbox iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .acwbox { z-index: 5; transform: translateX(calc(100% + 16px)); pointer-events: none; transition: transform .32s cubic-bezier(.2,.8,.2,1); }
+  .acwbox.open { transform: none; pointer-events: auto; }
+  .empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+           gap: 8px; text-align: center; padding: 24px; background: var(--card); color: var(--muted);
+           pointer-events: none; transition: opacity .25s, visibility .25s; }
+  .empty.hidden { opacity: 0; visibility: hidden; }
+  .empty svg { width: 56px; height: 56px; fill: var(--accent); opacity: .85; }
+  .empty h2 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text); }
+  .empty p { margin: 0; max-width: 260px; line-height: 1.45; }
+
+  /* ---- Genesys-Anmeldung (Telefon-iFrame nur bei Bedarf sichtbar) ---- */
+  .phone { display: none; position: absolute; left: 0; right: 0; top: 0; height: 300px; z-index: 30; border-radius: 16px; overflow: hidden;
+           background: var(--card); box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  .phone.login { display: block; }
+  .phonehead { height: 30px; line-height: 30px; padding: 0 12px; font-weight: 600; font-size: 12px; background: var(--accent); color: #fff; }
+  .phone iframe { width: 100%; height: calc(100% - 30px); border: 0; display: block; }
+
+  /* ---- Status-Menue ---- */
+  .pop { display: none; position: absolute; left: 76px; top: 10px; width: 232px; max-height: calc(100% - 20px); overflow: auto; z-index: 60;
+         background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 6px;
+         box-shadow: 0 12px 32px rgba(0,0,0,.35); }
+  .pop.open { display: block; }
+  .pitem { display: flex; align-items: center; width: 100%; text-align: left; border: 0; background: transparent; color: inherit;
+           font: inherit; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+  .pitem:hover { background: var(--bg); }
+  .pitem.on { font-weight: 700; background: var(--bg); }
+  .pitem:disabled { opacity: .4; cursor: default; }
+  .pgroup { padding: 8px 10px 2px; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+
+  /* ---- Debug-Fenster (nur mit ?debug=1, Zahnrad in der Seitenleiste) ---- */
+  .debugbar { display: none; position: absolute; left: 0; right: 0; bottom: 0; max-height: 78%; overflow: auto; z-index: 40; padding: 8px;
+              background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  body.debug.dbgopen .debugbar { display: block; }
+  .row { display: flex; gap: 6px; margin: 4px 0; }
+  .row input, .row select { flex: 1; min-width: 0; padding: 4px; }
+  .row button { padding: 4px 8px; cursor: pointer; border: 0; border-radius: 4px; background: var(--accent); color: #fff; }
+  .row button.ok { background: #00A888; }
+  .row button.danger { background: #c0392b; }
+  .row button.sap { background: #555; }
+  .row .lbl { white-space: nowrap; font-size: 12px; color: var(--muted); align-self: center; }
+  .info { font-size: 12px; color: var(--muted); }
+  .log { height: 140px; overflow: auto; background: var(--bg); border: 1px solid var(--line); padding: 4px; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
+
+  /* v16 Compact Rail: rail stays fixed; feature panels expand only on demand. */
+  .app { width: 68px; max-width: 100%; transition: width .22s ease; overflow: visible; }
+  .app.panel-open { width: min(568px, 100%); }
+  .app.status-open:not(.panel-open) { width: min(328px, 100%); }
+  .main { display: none; flex: 0 0 500px; width: 500px; min-width: 0; margin: 8px; overflow: hidden; }
+  .app.panel-open .main { display: block; }
+  .inter, .acwbox { display: none; position: absolute; inset: 0; transform: none !important; pointer-events: auto; }
+  .main.show-copilot .inter { display: block; }
+  .main.show-acw .acwbox { display: block; }
+  .main.show-copilot.show-acw { display: flex; flex-direction: column; gap: 8px; }
+  .main.show-copilot.show-acw .inter, .main.show-copilot.show-acw .acwbox { display: block; position: relative; inset: auto; min-height: 0; }
+  .main.show-copilot.show-acw .inter { flex: 1.25 1 0; }
+  .main.show-copilot.show-acw .acwbox { flex: 1 1 0; }
+  .scalebox { transform: none !important; width: 100% !important; height: 100% !important; }
+  .scalebox iframe, .acwbox iframe { width: 100% !important; height: 100% !important; }
 </style>
 </head>
 <body>
-<!--
-  Test des Genesys Composable Desktop (Copilot als eigenstaendige Komponente), Region apps.mypurecloud.de.
-  Aufbau wie "gadget-quickstart.html" aus MyPureCloud/crm-composable-desktop-examples.
-  Aufruf:   composable-copilot.html?interactionId=<Conversation-ID eines AKTIVEN Gespraechs>
-  Optionen: ?name=<Komponentenname> | ?cid=<Komponenten-ID> | ?size=small | ?region=mypurecloud.de
-  Die Integrations-ID wird von diesem Beispiel nicht benoetigt (Integration: 3c4712f7-b4e8-402a-af7d-b0f18cfadb5c).
--->
-<div class="wrap">
-  <div class="top">
-    <input id="iid" placeholder="Interaktions-ID (Conversation-ID eines aktiven Gespraechs)">
-    <button id="btnSet">Interaktion setzen</button>
-    <button id="btnReg">Neu registrieren</button>
-    <span class="chip" id="chipReg">Registrierung: offen</span>
-    <span class="chip" id="chipAuth">Anmeldung: offen</span>
-  </div>
-  <iframe id="broker" title="Composable Desktop Broker"></iframe>
+
+<!-- Provider URL fuer das SAP Live Interaction Widget.
+     Optionen: ?composable=1 | ?acw=acw|always|off | ?debug=1 (Zahnrad in der Seitenleiste) | ?theme=dark|light|auto
+               ?width=340 (feste Breite, 0 = volle Breite) | ?phone=show (Genesys-Anmeldung zeigen) | ?sap=<format> | ?name=<Komponentenname> -->
+<div class="app" id="app">
+
+  <aside class="rail">
+    <button type="button" class="statusbtn" id="statusBtn" title="Genesys-Status ändern" aria-haspopup="true">
+      <span class="ring"><span class="dot" id="dot"></span></span>
+      <span class="slabel" id="stLabel">Nicht verbunden</span>
+    </button>
+    <select id="statusSelect" hidden aria-label="Genesys-Status">
+      <option value="">Nicht verbunden</option>
+    </select>
+    <span id="stSub" hidden></span>
+
+    <div class="callinfo"><div class="ctimer" id="callTimer"></div><div class="cnum" id="callNum"></div></div>
+    <div class="call-actions" id="callActions">
+      <button type="button" class="rbtn answer" id="btnHeaderAnswer" title="Anruf annehmen" aria-label="Anruf annehmen"><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button>
+      <button type="button" class="rbtn hangup" id="btnHeaderHangup" title="Auflegen" aria-label="Auflegen"><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></button>
+    </div>
+
+    <div class="spacer"></div>
+    <nav class="tabs" id="tabs">
+      <button type="button" class="tab on" id="tabCopilot" title="Agent Copilot"><svg viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg><span>Copilot</span></button>
+      <button type="button" class="tab" id="tabAcw" title="Nachbearbeitung"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg><span>Nachbearb.</span></button>
+    </nav>
+    <button type="button" class="tab dbg" id="btnDebug" title="Debug-Fenster">&#9881;<span>Debug</span></button>
+    <div class="ver" id="ctiVersion"></div>
+  </aside>
+
   <div class="main">
-    <div id="compBox"></div>
-    <pre id="log"></pre>
+    <section class="phone" id="phone">
+      <div class="phonehead">Bitte bei Genesys anmelden</div>
+      <iframe id="genesysFrame"
+              allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+              title="Genesys Cloud Embeddable Framework"></iframe>
+    </section>
+
+    <main class="inter">
+      <div class="scalebox" id="scalebox">
+        <iframe id="genesysInteractionFrame"
+                allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"
+                title="Genesys Cloud Agent Copilot"></iframe>
+      </div>
+      <div class="empty" id="empty">
+        <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+        <h2 id="emptyTitle">Verbinde mit Genesys &hellip;</h2>
+        <p id="emptyText">Bitte im Anmeldefenster anmelden.</p>
+      </div>
+    </main>
+
+    <section class="acwbox" id="acwBox">
+      <iframe id="acwFrame" title="Genesys Cloud Nachbearbeitung (ACW)"
+              allow="camera *; microphone *; geolocation *; clipboard-write *; autoplay *; hid *"></iframe>
+    </section>
+
+  <div class="debugbar">
+    <div class="info" id="ctiInfo">Framework: nicht verbunden | Interaktion: -</div>
+    <div class="row">
+      <button class="ok" id="btnAnswer">Annehmen</button>
+      <button class="danger" id="btnHangup">Auflegen</button>
+      <button id="btnHold">Halten</button>
+      <button id="btnMute">Stumm</button>
+    </div>
+    <div class="row">
+      <span class="lbl">Copilot-Breite</span>
+      <input type="range" id="cwRange" min="200" max="600" step="5">
+      <span class="lbl" id="cwVal"></span>
+    </div>
+    <div class="row">
+      <select id="sapFormat" title="Nachrichtenformat an SAP">
+        <option value="flat-string">flach / JSON-Text</option>
+        <option value="flat-object">flach / Objekt</option>
+        <option value="wrap-string">payload-Schluessel / JSON-Text</option>
+        <option value="wrap-object">payload-Schluessel / Objekt</option>
+        <option value="xml">XML (ohne Kopfzeile)</option>
+        <option value="xml-decl">XML (mit xml-Kopfzeile)</option>
+      </select>
+    </div>
+    <div class="row">
+      <input id="sapTestAni" value="+4915112345678" title="Test-Rufnummer fuer die SAP-Tests">
+      <button class="sap" id="btnSapNotify">SAP: Notify</button>
+      <button class="sap" id="btnSapAccept">SAP: Accept</button>
+      <button class="sap" id="btnSapEnd">SAP: End</button>
+    </div>
+    <div class="log" id="ctiLog"></div>
   </div>
+
+  </div>
+
+  <div class="pop" id="statusPop" role="menu"></div>
 </div>
 
 <script>
 (function () {
-  // ===== Konfiguration =====
-  var q = new URLSearchParams(location.search);
-  var REGION = q.get('region') || 'mypurecloud.de';
-  var BASE = 'https://apps.' + REGION + '/crm-embeddable-desktop/';
-  var COMPONENT_ID = q.get('cid') || ('ewe-test-' + Math.random().toString(36).slice(2, 10));   // frei waehlbarer String
-  var COMPONENT_NAME = q.get('name') || 'GENESYS_CLOUD_COMPOSABLE_DESKTOP';   // ggf. den von Genesys genannten Namen verwenden
-  var SIZE = q.get('size') || 'small';
-  // =========================
+  'use strict';
 
-  var logEl = document.getElementById('log');
-  function log(t) { logEl.textContent += '[' + new Date().toLocaleTimeString() + '] ' + t + '\n'; logEl.scrollTop = logEl.scrollHeight; }
-  function chip(id, text, cls) { var e = document.getElementById(id); e.textContent = text; e.className = 'chip ' + (cls || ''); }
+  // ====== Konfiguration ======
+  var GENESYS_ORIGIN = 'https://apps.mypurecloud.de';
+  var FRAME_SRC = GENESYS_ORIGIN + '/crm/embeddableFramework.html?enableFrameworkClientId=true&dedicatedLoginWindow=true';
+  var INTERACTION_SRC = GENESYS_ORIGIN + '/crm/interaction.html';
+  var DEFAULT_COUNTRY_CODE = '+49';   // fuer Nummern ohne + (z. B. 0173... -> +49173...)
+  var SAP_ENABLED = true;             // Events an SAP senden (Notify/Accept/End)
+  // Organisationsspezifische Genesys Presence-Definition-IDs als URL-Parameter:
+  // ?status_ON_QUEUE=<id>&status_AVAILABLE=<id>&status_BREAK=<id> usw.
+  var STATUS_LABELS = {
+    ON_QUEUE: 'In Warteschlange', AVAILABLE: 'Verfügbar', AWAY: 'Abwesend',
+    BREAK: 'Pause', MEAL: 'Essenspause', BUSY: 'Beschäftigt',
+    MEETING: 'Besprechung', TRAINING: 'Schulung',
+    PERFORMANCE_TRAINING: 'Performance-Schulung', FACHANSPRECHPARTNER: 'Fachansprechpartner',
+    SCHRIFTBEARBEITUNG: 'Schriftbearbeitung', BASIC_TRAINING: 'Basis-Schulung',
+    UPDATE_TRAINING: 'Update-Schulung', COACHING_FEEDBACK: 'Coaching & Feedback'
+  };
+  var STATUS_IDS = {
+    ON_QUEUE: 'e08eaf1b-ee47-4fa9-a231-1200e284798f',
+    AVAILABLE: '6a3af858-942f-489d-9700-5f9bcdcdae9b',
+    AWAY: '5e5c5c66-ea97-4e7f-ac41-6424784829f2',
+    BREAK: '227b37e2-f1d0-4dd0-8f50-badd7cf6d158',
+    MEAL: '3fd96123-badb-4f69-bc03-1b1ccc6d8014',
+    BUSY: '31fe3bac-dea6-44b7-bed7-47f91660a1a0',
+    MEETING: 'bbdff279-7ae1-48ea-bade-7831d7234c64',
+    TRAINING: 'd2390a99-8546-bad9-8f0a-219548e8aeb0',
+    PERFORMANCE_TRAINING: '0e2f5027-7514-4d58-8f91-8c5868ce684d',
+    FACHANSPRECHPARTNER: '3e93b26b-9b3a-4eb5-9792-5f4ed58ee430',
+    SCHRIFTBEARBEITUNG: '6072b39b-d919-47d4-91d1-9343e7e4cad4',
+    BASIC_TRAINING: '6fb8f7bd-ff45-4a31-bd52-6e93d9c238bd',
+    UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
+    COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
+  };
+  var CTI_VERSION = '17.11.2026 · v17 DynamicRail';
+  // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
+  // (Standard: wrap-object - von SAP akzeptiert)
+  // ===========================
 
-  var broker = document.getElementById('broker');
-  var registered = false, regSent = false, authenticated = false;
-  document.getElementById('iid').value = q.get('interactionId') || '';
+  var params = new URLSearchParams(location.search);
+  var DEBUG = params.get('debug') === '1';
+  var sapFormat = params.get('sap') || 'wrap-object';
+  var theme = params.get('theme') || 'auto';
+  if (theme === 'auto') theme = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  document.body.setAttribute('data-theme', theme);
+  // Hoehe des Telefon-Streifens je Zustand (px); per URL ueberschreibbar: ?hIdle=150&hCall=270&hAcw=330
+  var HEIGHTS = {
+    idle: parseInt(params.get('hIdle'), 10) || 150,
+    call: parseInt(params.get('hCall'), 10) || parseInt(params.get('phoneHeight'), 10) || 270,
+    acw:  parseInt(params.get('hAcw'), 10) || 330
+  };
+  if (DEBUG) document.body.classList.add('debug');
 
-  function post(type, data) {
-    broker.contentWindow.postMessage({ type: 'Genesys.ComposableDesktop.' + type, data: data }, '*');
-    log('-> ' + type + ' ' + JSON.stringify(data));
+  function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+  var frame = document.getElementById('genesysFrame');
+  var interactionFrame = document.getElementById('genesysInteractionFrame');
+  var phoneEl = document.getElementById('phone');
+  var scalebox = document.getElementById('scalebox');
+  var infoEl = document.getElementById('ctiInfo');
+  var logEl = document.getElementById('ctiLog');
+  var inIframe = window.parent !== window;
+  var state = { ready: false, interactionId: null };
+  var calls = {};   // Zustand je Interaktion: {notified, accepted, ended, dialing}
+
+  function log(text) {
+    if (!DEBUG) return;
+    logEl.textContent += '[' + new Date().toLocaleTimeString() + '] ' + text + '\n';
+    logEl.scrollTop = logEl.scrollHeight;
   }
-  function register() { regSent = true; post('REGISTRATION_REQUEST', { componentId: COMPONENT_ID, name: COMPONENT_NAME }); }
-  function setInteraction() {
-    var id = document.getElementById('iid').value.trim();
-    if (!id) { log('Bitte eine Interaktions-ID (Conversation-ID eines aktiven Gespraechs) eintragen.'); return; }
-    post('SET_INTERACTION', { componentId: COMPONENT_ID, scope: 'default', interactionId: id });
+  function updateInfo() {
+    infoEl.textContent = 'Framework: ' + (state.ready ? 'verbunden' : 'nicht verbunden') +
+      ' | Interaktion: ' + (state.interactionId || '-');
   }
 
+  // ---------- Oberflaeche: Status, Platzhalter, Zoom, Telefon ein/aus ----------
+  var ui = { mode: 'idle', number: '', t0: 0, t1: 0, tick: null, presence: '', routing: '' };
+  var PRESENCE = {
+    AVAILABLE: ['Verf\u00fcgbar', 'p-green'], ON_QUEUE: ['In Warteschlange', 'p-green'],
+    AWAY: ['Abwesend', 'p-orange'], BREAK: ['Pause', 'p-orange'], MEAL: ['Essenspause', 'p-orange'],
+    BUSY: ['Besch\u00e4ftigt', 'p-red'], MEETING: ['Besprechung', 'p-red'], TRAINING: ['Schulung', 'p-red'],
+    OFFLINE: ['Offline', 'p-grey']
+  };
+  var ROUTING = {
+    OFF_QUEUE: 'Nicht in Warteschlange', IDLE: 'Bereit f\u00fcr Anrufe', INTERACTING: 'Im Gespr\u00e4ch',
+    COMMUNICATING: 'Im Gespr\u00e4ch', NOT_RESPONDING: 'Nicht erreichbar'
+  };
+
+  function mmss(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000)), m = Math.floor(s / 60); s = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function statusId(key) { return params.get('status_' + key) || STATUS_IDS[key] || ''; }
+  function buildStatusOptions(currentKey, currentLabel) {
+    var sel = document.getElementById('statusSelect');
+    sel.innerHTML = '';
+
+    function addOption(parent, key) {
+      var opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = key === currentKey && currentLabel ? currentLabel : (STATUS_LABELS[key] || key);
+      opt.disabled = key !== currentKey && !statusId(key);
+      parent.appendChild(opt);
+    }
+    function addGroup(label, keys) {
+      var group = document.createElement('optgroup');
+      group.label = label;
+      keys.forEach(function (key) { addOption(group, key); });
+      sel.appendChild(group);
+    }
+
+    // Systemstatus in der gewohnten Reihenfolge.
+    addOption(sel, 'AVAILABLE');
+    addGroup('Beschäftigt', ['BUSY', 'COACHING_FEEDBACK', 'SCHRIFTBEARBEITUNG', 'FACHANSPRECHPARTNER']);
+    addOption(sel, 'AWAY');
+    addOption(sel, 'BREAK');
+    addOption(sel, 'MEAL');
+    addOption(sel, 'MEETING');
+    addGroup('Schulung', ['TRAINING', 'BASIC_TRAINING', 'PERFORMANCE_TRAINING', 'UPDATE_TRAINING']);
+    addOption(sel, 'ON_QUEUE');
+
+    // Falls Genesys einen hier nicht abgebildeten Status meldet, bleibt er trotzdem sichtbar.
+    var known = ['AVAILABLE','BUSY','COACHING_FEEDBACK','SCHRIFTBEARBEITUNG','FACHANSPRECHPARTNER','AWAY','BREAK','MEAL','MEETING','TRAINING','BASIC_TRAINING','PERFORMANCE_TRAINING','UPDATE_TRAINING','ON_QUEUE'];
+    if (currentKey && known.indexOf(currentKey) < 0) addOption(sel, currentKey);
+  }
+  document.getElementById('statusSelect').addEventListener('change', function () {
+    var selEl = this;
+    var key = this.value;
+    var id = statusId(key);
+    if (!id) { selEl.value = ui.presence || ''; return; }
+    log('-> Statuswechsel angefordert: ' + key + ' / ' + id);
+    send('updateStatus', { id: id });
+    // Auswahl erst wieder dauerhaft umstellen, wenn Genesys den neuen Status zurueckmeldet.
+    setTimeout(function () { if (ui.presence !== key) { selEl.value = ui.presence || ''; log('Statuswechsel noch nicht von Genesys bestaetigt'); } }, 1500);
+  });
+  function renderState() {
+    var cls = 'dot', title, sub = '';
+    var num = ui.number ? ui.number + ' \u00b7 ' : '';
+    if (!state.ready) { title = 'Nicht verbunden'; sub = 'Bitte im Telefonfenster anmelden'; }
+    else if (ui.mode === 'ringing') { cls += ' ringing'; title = 'Eingehender Anruf'; sub = ui.number; }
+    else if (ui.mode === 'dialing') { cls += ' ringing'; title = 'Ausgehender Anruf'; sub = ui.number; }
+    else if (ui.mode === 'active') { cls += ' active'; title = 'Im Gespr\u00e4ch'; sub = num + mmss(Date.now() - ui.t0); }
+    else if (ui.mode === 'acw') { cls += ' ringing'; title = 'Nachbearbeitung'; sub = num + mmss(Date.now() - ui.t1) + ' \u00b7 Code w\u00e4hlen'; }
+    else {
+      var pr = PRESENCE[ui.presence];
+      cls += ' ' + (pr ? pr[1] : 'ready');
+      title = pr ? pr[0] : (ui.presence ? ui.presence.charAt(0) + ui.presence.slice(1).toLowerCase() : 'Verbunden');
+      sub = ROUTING[ui.routing] || '';
+    }
+    document.getElementById('dot').className = cls;
+    var statusSelect = document.getElementById('statusSelect');
+    var currentKey = ui.presence || '';
+    var currentLabel = title;
+    var found = false;
+    for (var oi = 0; oi < statusSelect.options.length; oi++) {
+      if (statusSelect.options[oi].value === currentKey) { found = true; break; }
+    }
+    if (!found || statusSelect.options.length === 1) buildStatusOptions(currentKey, currentLabel);
+    statusSelect.value = currentKey;
+    document.getElementById('stSub').textContent = sub;
+    document.getElementById('stLabel').textContent = title;
+    document.getElementById('statusBtn').title = title + (sub ? ' \u2013 ' + sub : '') + ' (Status \u00e4ndern)';
+    var tmr = document.getElementById('callTimer');
+    tmr.textContent = ui.mode === 'active' ? mmss(Date.now() - ui.t0)
+      : ui.mode === 'acw' ? mmss(Date.now() - ui.t1)
+      : ui.mode === 'ringing' ? 'Eingehend' : (ui.mode === 'dialing' ? 'W\u00e4hlt' : '');
+    var numEl = document.getElementById('callNum');
+    numEl.textContent = ui.mode !== 'idle' ? (ui.number || '') : '';
+    numEl.title = numEl.textContent;
+    var actions = document.getElementById('callActions');
+    var answer = document.getElementById('btnHeaderAnswer');
+    var hangup = document.getElementById('btnHeaderHangup');
+    var showAnswer = ui.mode === 'ringing';
+    var showHangup = ui.mode === 'ringing' || ui.mode === 'active' || ui.mode === 'dialing';
+    answer.style.display = showAnswer ? '' : 'none';
+    hangup.style.display = showHangup ? '' : 'none';
+    hangup.title = ui.mode === 'ringing' ? 'Anruf ablehnen' : 'Auflegen';
+    hangup.setAttribute('aria-label', hangup.title);
+    actions.classList.toggle('visible', showAnswer || showHangup);
+    if (typeof updateAcwBox === 'function') updateAcwBox();
+  }
+
+  function updateEmpty() {
+    var empty = document.getElementById('empty');
+    var show = !state.interactionId;
+    empty.classList.toggle('hidden', !show);
+    if (!show) return;
+    if (!state.ready) {
+      document.getElementById('emptyTitle').textContent = 'Verbinde mit Genesys \u2026';
+      document.getElementById('emptyText').textContent = 'Bitte oben im Telefonfenster anmelden.';
+    } else {
+      document.getElementById('emptyTitle').textContent = 'Warte auf Anruf';
+      document.getElementById('emptyText').textContent = 'Agent Copilot wird beim eingehenden Anruf sofort mit vollst\u00e4ndigem Genesys-Kontext geladen.';
+    }
+  }
+
+  function expandPhone() { phoneEl.classList.remove('collapsed'); }
+
+  function applyPhoneHeight() {
+    var key = (ui.mode === 'acw') ? 'acw' : (ui.mode === 'idle' ? 'idle' : 'call');
+    document.documentElement.style.setProperty('--phone-h', HEIGHTS[key] + 'px');
+  }
+
+  function setMode(mode, number) {
+    ui.mode = mode;
+    if (number !== undefined) ui.number = number || '';
+    clearInterval(ui.tick);
+    if (mode === 'active') { ui.t0 = Date.now(); ui.tick = setInterval(renderState, 1000); }
+    if (mode === 'acw') { ui.t1 = Date.now(); ui.tick = setInterval(renderState, 1000); }
+    // Altes Genesys-CTI bei Anruf/Nachbearbeitung nicht automatisch aufklappen.
+    if (mode !== 'idle') phoneEl.classList.add('collapsed');
+    applyPhoneHeight();
+    renderState();
+    updateEmpty();
+    updateAcwBox();
+  }
+
+  // Das Genesys-Framework bleibt technisch geladen, aber visuell dauerhaft ausgeblendet.
+  phoneEl.classList.add('collapsed');
+  // ---------- Genesys: Befehle senden ----------
+  function send(type, data) {
+    if (!frame.contentWindow) return;
+    frame.contentWindow.postMessage(JSON.stringify({ type: type, data: data === undefined ? {} : data }), GENESYS_ORIGIN);
+    log('-> ' + type + (data ? ' ' + JSON.stringify(data) : ''));
+  }
+
+  // ---------- SAP: Events senden ----------
+  function xmlOf(p) {
+    var x = '<payload>';
+    Object.keys(p).forEach(function (k) {
+      x += '<' + k + '>' + String(p[k]).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</' + k + '>';
+    });
+    return x + '</payload>';
+  }
+
+  function toSap(payload) {
+    if (!SAP_ENABLED || !inIframe) { log('(SAP aus oder Seite nicht in SAP) ' + JSON.stringify(payload)); return; }
+    var out;
+    if (sapFormat === 'xml' || sapFormat === 'xml-decl') {
+      out = (sapFormat === 'xml-decl' ? '<?xml version="1.0" encoding="utf-8"?>' : '') + xmlOf(payload);
+    } else {
+      out = sapFormat.indexOf('wrap') === 0 ? { payload: payload } : payload;
+      if (/string$/.test(sapFormat)) out = JSON.stringify(out);
+    }
+    window.parent.postMessage(out, '*');
+    log('-> SAP [' + sapFormat + '] ' + (typeof out === 'string' ? out : JSON.stringify(out)));
+  }
+
+  function normalizeNumber(raw) {
+    if (!raw) return '';
+    var n = String(raw).replace(/^tel:/i, '').replace(/[\s()\-\/]/g, '');
+    if (n.charAt(0) === '+') return n;
+    if (n.indexOf('00') === 0) return '+' + n.slice(2);
+    if (n.charAt(0) === '0') return DEFAULT_COUNTRY_CODE + n.slice(1);
+    return /^\d+$/.test(n) ? '+' + n : n;
+  }
+
+  function directionOf(i) {
+    var d = String(i.direction || '').toLowerCase();
+    if (d.indexOf('out') === 0 || i.isDialing === true) return 'OUTBOUND';
+    return 'INBOUND';
+  }
+
+  function numberOf(i, dir) {
+    var list = dir === 'INBOUND'
+      ? [i.ani, i.phone, i.displayAddress, i.remoteAddress]
+      : [i.phone, i.dnis, i.displayAddress, i.remoteAddress];
+    for (var k = 0; k < list.length; k++) { if (list[k]) return normalizeNumber(list[k]); }
+    return '';
+  }
+
+  function sapEvent(action, id, ani, dir) {
+    toSap({
+      Type: 'CALL',
+      EventType: action === 'END' ? 'UPDATEACTIVITY' : dir,
+      Action: action,
+      ANI: ani,
+      ExternalReferenceID: String(id).replace(/-/g, '')
+    });
+  }
+
+  // ---------- Genesys-Interaktion -> SAP Notify/Accept/End + Oberflaeche ----------
+  function handleInteraction(category, i) {
+    if (!i) return;
+    var id = i.id || (i.old && i.old.id);
+    if (!id) return;
+    if (category === 'deallocate') {
+      delete calls[id];
+      state.interactionId = null;
+      setMode('idle', '');
+      return;
+    }
+    if (i.isChat || i.isEmail || i.isMessage || i.isVoicemail || i.isCallback) return;   // nur Telefonie
+
+    state.interactionId = id;
+    if (COMPOSABLE) cdSetInteraction();
+    var c = calls[id] || (calls[id] = {});
+    var dir = directionOf(i);
+    var ani = numberOf(i, dir);
+    var connected = i.isConnected === true || category === 'connect';
+    var ended = i.isDisconnected === true || i.isDone === true || category === 'disconnect';
+
+    if (DEBUG && category !== 'change') log('interaction ' + category + ': ' + JSON.stringify(i).slice(0, 700));
+
+    if (!c.notified && !connected && !ended && dir === 'INBOUND') {
+      c.notified = true; sapEvent('NOTIFY', id, ani, dir); setMode('ringing', ani);
+    }
+    if (!c.dialing && !connected && !ended && dir === 'OUTBOUND') {
+      c.dialing = true; setMode('dialing', ani);
+    }
+    if (connected && !c.accepted && !ended) {
+      c.accepted = true; sapEvent('ACCEPT', id, ani, dir); setMode('active', ani);
+    }
+    if (ended && !c.ended) {
+      c.ended = true;
+      if (c.accepted) { sapEvent('END', id, ani, dir); setMode('acw'); }
+      else { setMode('idle', ''); }
+    }
+    updateEmpty();
+  }
+
+  // ---------- Nachrichten von SAP (nur Log, z. B. Click-to-Call-Payload) ----------
+  function handleSapMessage(e) {
+    var d = e.data;
+    log('<- SAP ' + (typeof d === 'string' ? d : JSON.stringify(d)).slice(0, 400));
+  }
+
+  // ---------- Nachrichten von Genesys (framework.js) ----------
   window.addEventListener('message', function (e) {
-    if (e.source !== broker.contentWindow) return;
+    if (inIframe && e.source === window.parent) { handleSapMessage(e); return; }
+    if (e.origin !== GENESYS_ORIGIN || e.source !== frame.contentWindow) return;
+    var msg;
+    try { msg = JSON.parse(e.data); } catch (err) { return; }
+    if (!msg || !msg.type) return;
+    var d = msg.data || {};
+
+    switch (msg.type) {
+      case 'ready':
+        state.ready = true;
+        log('<- ready');
+        phoneEl.classList.remove('login');
+        if (!interactionFrame.src && !COMPOSABLE) { interactionFrame.src = INTERACTION_SRC; log('Interaktionsfenster wird geladen'); }
+        renderState(); updateEmpty();
+        break;
+      case 'interaction':
+        handleInteraction(d.category, d.interaction);
+        break;
+      case 'userAction':
+        if (d.category === 'status' && d.data) {
+          ui.presence = String(d.data.status || '').toUpperCase();
+          log('<- Status: ' + ui.presence);
+          renderState();
+        } else if (d.category === 'routingStatus') {
+          ui.routing = String(typeof d.data === 'string' ? d.data : (d.data && d.data.status) || '').toUpperCase();
+          // ACW ist beendet, sobald Genesys wieder IDLE meldet. Nicht auf das spaetere deallocate warten.
+          if (ui.mode === 'acw' && ui.routing === 'IDLE') {
+            if (state.interactionId) delete calls[state.interactionId];
+            state.interactionId = null;
+            setMode('idle', '');
+          } else {
+            renderState();
+          }
+        } else {
+          log('<- userAction ' + JSON.stringify(d).slice(0, 200));
+        }
+        break;
+      case 'contactSearch':
+        send('contactSearchResult', { requestId: d.requestId, contacts: [] });
+        break;
+      case 'processCallLog':
+        send('processCallLogResult', { requestId: d.requestId, success: true });
+        break;
+      case 'error':
+        log('<- ERROR ' + d.where + ': ' + d.message);
+        break;
+      default:
+        log('<- ' + msg.type + ' ' + JSON.stringify(d).slice(0, 200));
+    }
+    updateInfo();
+  });
+
+  // ---------- Debug-Buttons ----------
+  function needInteraction() {
+    if (!state.interactionId) { log('Keine aktive Interaktion'); return false; }
+    return true;
+  }
+  function answerCurrent() { if (needInteraction()) send('answer', { interactionId: state.interactionId }); }
+  function hangupCurrent() { if (needInteraction()) send('hangup', { interactionId: state.interactionId }); }
+  document.getElementById('btnAnswer').onclick = answerCurrent;
+  document.getElementById('btnHangup').onclick = hangupCurrent;
+  document.getElementById('btnHeaderAnswer').onclick = answerCurrent;
+  document.getElementById('btnHeaderHangup').onclick = hangupCurrent;
+  document.getElementById('btnHold').onclick = function () { if (needInteraction()) send('hold', { interactionId: state.interactionId }); };
+  document.getElementById('btnMute').onclick = function () { if (needInteraction()) send('mute', { interactionId: state.interactionId }); };
+
+  var fmtSel = document.getElementById('sapFormat');
+  fmtSel.value = sapFormat;
+  fmtSel.onchange = function () { sapFormat = fmtSel.value; log('SAP-Format: ' + sapFormat); };
+
+  var TEST_ID = 'TEST' + Date.now().toString(16).toUpperCase();
+  function testAni() { return normalizeNumber(document.getElementById('sapTestAni').value); }
+  document.getElementById('btnSapNotify').onclick = function () { sapEvent('NOTIFY', TEST_ID, testAni(), 'INBOUND'); };
+  document.getElementById('btnSapAccept').onclick = function () { sapEvent('ACCEPT', TEST_ID, testAni(), 'INBOUND'); };
+  document.getElementById('btnSapEnd').onclick = function () { sapEvent('END', TEST_ID, testAni(), 'INBOUND'); };
+
+  // ---------- Nur-Copilot-Ansicht (Script ausblenden) ----------
+  // Das Interaktionsfenster wird virtuell breit (FULL_W) gerendert. Rechts sitzt das Copilot-Panel mit fester Breite
+  // (ca. 300 px). Sichtbar ist nur dieser rechte Streifen, vergroessert auf die Breite des SAP-Fensters.
+  // URL: ?copilotW=300 (Panelbreite) | ?fullW=1100 | ?maxScale=1.7 | ?script=show (alles zeigen, nur zum Testen)
+  var FULL_W = parseInt(params.get('fullW'), 10) || 1100;
+  var MAX_SCALE = parseFloat(params.get('maxScale')) || 1.7;
+  function ctiLoad(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function ctiStore(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  var copilotW = parseInt(params.get('copilotW'), 10) || parseInt(ctiLoad('ctiCopilotW'), 10) || 300;
+  // ---------- Composable Desktop: Copilot als eigenstaendige Komponente (nur mit ?composable=1) ----------
+  // Statt des Interaktionsfensters wird die Copilot-Komponente des Genesys Composable Desktop eingebettet
+  // (Broker-iFrame + Komponenten-iFrame, siehe GitHub MyPureCloud/crm-composable-desktop-examples).
+  // URL: ?composable=1 | ?name=<Komponentenname> | ?cid=<Komponenten-ID> | ?size=small | ?brokerUi=1 (Broker-Leiste immer zeigen)
+  var COMPOSABLE = params.get('composable') === '1';
+  var CD_BASE = GENESYS_ORIGIN + '/crm-embeddable-desktop/';
+  var CD_NAME = params.get('name') || 'GENESYS_CLOUD_COMPOSABLE_DESKTOP';   // ggf. den von Genesys genannten Namen verwenden
+  var CD_ID = params.get('cid') || ('ewe-cti-' + Math.random().toString(36).slice(2, 10));
+  var CD_SIZE = params.get('size') || 'small';
+  var cdBroker = null, cdRegSent = false, cdRegistered = false, cdAuth = false, cdSent = '';
+  var cdSetTimer = null;
+  // ACW-Fenster (Nachbearbeitung): eingebetteter Scope; ?acw=acw (Standard, nur in der Nachbearbeitung) | always (auch im Gespraech) | off
+  // Hoehe: ?acwH=320
+  var ACW_ID = 'scope-2';
+  var ACW_MODE = params.get('acw') || 'acw';
+  var acwH = parseInt(params.get('acwH'), 10);
+  if (acwH > 120) document.documentElement.style.setProperty('--acw-h', acwH + 'px');
+  var copilotOpen = false;
+  var acwOpen = false;
+  var lastHadConversation = false;
+  function updateAcwBox() {
+    var app = document.getElementById('app');
+    var main = document.querySelector('.main');
+    if (!app || !main) return;
+    var hasConversation = !!state.interactionId && ui.mode !== 'idle';
+    if (hasConversation && !lastHadConversation) copilotOpen = true;
+    if (hasConversation && ui.mode === 'acw') acwOpen = true;
+    if (!hasConversation) { copilotOpen = false; acwOpen = false; }
+    lastHadConversation = hasConversation;
+    var acwEnabled = COMPOSABLE && ACW_MODE !== 'off';
+    if (!acwEnabled) acwOpen = false;
+    main.classList.toggle('show-copilot', hasConversation && copilotOpen);
+    main.classList.toggle('show-acw', hasConversation && acwOpen);
+    app.classList.toggle('panel-open', hasConversation && (copilotOpen || acwOpen));
+    document.getElementById('tabCopilot').classList.toggle('on', hasConversation && copilotOpen);
+    document.getElementById('tabAcw').classList.toggle('on', hasConversation && acwOpen);
+    document.getElementById('tabAcw').classList.toggle('alert', acwEnabled && ui.mode === 'acw' && !acwOpen);
+  }
+
+  function cdPost(type, data) {
+    if (!cdBroker || !cdBroker.contentWindow) return;
+    cdBroker.contentWindow.postMessage({ type: 'Genesys.ComposableDesktop.' + type, data: data }, '*');
+    log('-> CD ' + type + ' ' + JSON.stringify(data));
+  }
+  function cdSetInteraction(force) {
+    if (!cdRegistered || !cdAuth || !state.interactionId) return;
+    var iid = state.interactionId;
+    if (!force && cdSent === iid) return;
+    cdSent = iid;
+    cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'default', interactionId: iid });
+    if (ACW_MODE !== 'off') cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'embedded', id: ACW_ID, interactionId: iid });
+
+    clearTimeout(cdSetTimer);
+    cdSetTimer = setTimeout(function () {
+      if (cdRegistered && cdAuth && state.interactionId === iid) {
+        cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'default', interactionId: iid });
+        if (ACW_MODE !== 'off') cdPost('SET_INTERACTION', { componentId: CD_ID, scope: 'embedded', id: ACW_ID, interactionId: iid });
+      }
+    }, 600);
+  }
+  function cdShowBroker(show) { if (cdBroker) cdBroker.style.display = show ? 'block' : 'none'; }
+  function cdHandle(e) {
+    if (!cdBroker || e.source !== cdBroker.contentWindow) return;
     var m = e.data;
     try { if (typeof m === 'string') m = JSON.parse(m); } catch (err) { return; }
     if (!m || !m.type || String(m.type).indexOf('Genesys.ComposableDesktop.') !== 0) return;
-    var t = String(m.type).replace('Genesys.ComposableDesktop.', ''), d = m.data || {};
-    log('<- ' + t + ' ' + JSON.stringify(d).slice(0, 400));
+    var d = m.data || {}, t = String(m.type).replace('Genesys.ComposableDesktop.', '');
+    log('<- CD ' + t + ' ' + JSON.stringify(d).slice(0, 240));
     if (t === 'REGISTRATION_RESPONSE') {
-      registered = true; chip('chipReg', 'Registrierung: ok', 'ok');
-      post('GET_STATUS', { componentId: COMPONENT_ID, contextId: 'after-register' });
+      cdRegistered = true;
+      cdPost('GET_STATUS', { componentId: CD_ID, contextId: 'after-register' });
     } else if (t === 'STATUS_UPDATE') {
-      if (d.contextId === 'handshake' || d.contextId === 'initial') { if (!regSent) register(); return; }
-      authenticated = d.authenticated === true;
-      chip('chipAuth', authenticated ? 'Anmeldung: ok' : 'Anmeldung: noetig (siehe Leiste oben)', authenticated ? 'ok' : 'bad');
-      if (registered && authenticated && document.getElementById('iid').value.trim()) setInteraction();
-    } else if (/DENIED|ERROR|FAIL/i.test(t)) {
-      chip('chipReg', 'Fehler: ' + t, 'bad');
+      if (d.contextId === 'handshake' || d.contextId === 'initial') {
+        if (!cdRegSent) { cdRegSent = true; cdPost('REGISTRATION_REQUEST', { componentId: CD_ID, name: CD_NAME }); }
+        return;
+      }
+      cdAuth = d.authenticated === true;
+      cdShowBroker(!cdAuth || params.get('brokerUi') === '1');
+      if (cdAuth) cdSetInteraction(true);
     }
-  });
+  }
+  function cdStart() {
+    window.addEventListener('message', cdHandle);
+    cdBroker = document.createElement('iframe');
+    cdBroker.id = 'cdBroker';
+    cdBroker.title = 'Genesys Composable Desktop Broker';
+    cdBroker.style.cssText = 'display:none;position:fixed;left:0;bottom:0;width:100%;height:64px;border:0;z-index:9998;background:#fff;';
+    cdBroker.onload = function () { cdPost('GET_STATUS', { componentId: CD_ID, contextId: 'handshake' }); };
+    cdBroker.src = CD_BASE + 'index.html?show-broker-ui=true&mini-display-type=true';
+    document.body.appendChild(cdBroker);
+    interactionFrame.src = CD_BASE + 'component.html#/copilot?size=' + encodeURIComponent(CD_SIZE) + '&scope=default';
+    if (ACW_MODE !== 'off') document.getElementById('acwFrame').src = CD_BASE + 'component.html#/acw?size=' + encodeURIComponent(CD_SIZE) + '&scope=embedded&scopeId=' + ACW_ID;
+    log('Composable Desktop: Komponente ' + CD_ID + ' (' + CD_NAME + ')');
+    setTimeout(function () { if (!cdAuth) cdShowBroker(true); }, 6000);   // Anmeldung im Broker anzeigen, falls noetig
+  }
 
-  document.getElementById('btnSet').onclick = setInteraction;
-  document.getElementById('btnReg').onclick = function () { registered = false; register(); };
+  var scriptHidden = params.get('script') !== 'show' && !COMPOSABLE;   // Standard: Script ausgeblendet; zum Testen ?script=show
+  // Feste Breite der Anzeige in px (Standard 340). ?width=400 aendert sie, ?width=0 nutzt die volle Breite des SAP-Fensters.
+  var WIDTH = params.has('width') ? (parseInt(params.get('width'), 10) || 0) : 340;
+  document.documentElement.style.setProperty('--app-w', WIDTH > 0 ? WIDTH + 'px' : 'none');
+  var interEl = document.querySelector('.inter');
+  function applyLayout() {
+    document.getElementById('cwRange').value = copilotW;
+    document.getElementById('cwVal').textContent = copilotW + ' px';
+    if (!scriptHidden) { scalebox.style.cssText = ''; interactionFrame.style.cssText = ''; return; }
+    var W = interEl.clientWidth, H = interEl.clientHeight;
+    if (!W || !H) return;
+    var s = Math.min(W / copilotW, MAX_SCALE);
+    scalebox.style.cssText = 'position:absolute;right:0;top:0;height:100%;overflow:hidden;width:' + Math.round(copilotW * s) + 'px;';
+    interactionFrame.style.cssText = 'position:absolute;right:0;top:0;border:0;width:' + FULL_W + 'px;height:' + Math.round(H / s) +
+      'px;transform:scale(' + s + ');transform-origin:top right;';
+  }
+  document.getElementById('cwRange').oninput = function () {
+    copilotW = parseInt(this.value, 10) || 300;
+    ctiStore('ctiCopilotW', String(copilotW)); applyLayout();
+  };
+  window.addEventListener('resize', applyLayout);
+  if (window.ResizeObserver) new ResizeObserver(applyLayout).observe(interEl);
+  applyLayout();
+  log('CTI-Version ' + CTI_VERSION);
 
-  log('Komponenten-ID: ' + COMPONENT_ID + ' | Name: ' + COMPONENT_NAME + ' | Region: ' + REGION);
-  var comp = document.createElement('iframe');
-  comp.allow = 'camera *; microphone *; clipboard-write *; autoplay *';
-  comp.src = BASE + 'component.html#/copilot?size=' + encodeURIComponent(SIZE) + '&scope=default';
-  document.getElementById('compBox').appendChild(comp);
+  phoneEl.classList.add('collapsed');
+  renderState();
+  updateEmpty();
+  // ---------- Seitenleiste: Status-Menue, Tabs, Debug, Version, Anmeldung ----------
+  var statusPop = document.getElementById('statusPop');
+  function closeStatusPop() { statusPop.classList.remove('open'); document.getElementById('app').classList.remove('status-open'); }
+  function renderStatusPop() {
+    var sel = document.getElementById('statusSelect');
+    statusPop.innerHTML = '';
+    function item(opt) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pitem' + (opt.value === ui.presence ? ' on' : '');
+      b.disabled = !!opt.disabled;
+      b.textContent = opt.textContent;
+      b.onclick = function () {
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event('change'));
+        closeStatusPop();
+      };
+      return b;
+    }
+    Array.prototype.forEach.call(sel.children, function (ch) {
+      if (ch.tagName === 'OPTGROUP') {
+        var h = document.createElement('div');
+        h.className = 'pgroup';
+        h.textContent = ch.label;
+        statusPop.appendChild(h);
+        Array.prototype.forEach.call(ch.children, function (o) { statusPop.appendChild(item(o)); });
+      } else if (ch.value) {
+        statusPop.appendChild(item(ch));
+      }
+    });
+  }
+  document.getElementById('statusBtn').onclick = function (e) {
+    e.stopPropagation();
+    if (statusPop.classList.contains('open')) { closeStatusPop(); return; }
+    renderStatusPop();
+    statusPop.classList.add('open');
+    document.getElementById('app').classList.add('status-open');
+  };
+  document.addEventListener('click', function (e) { if (!statusPop.contains(e.target)) closeStatusPop(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeStatusPop(); });
 
-  broker.onload = function () { log('Broker geladen'); post('GET_STATUS', { componentId: COMPONENT_ID, contextId: 'handshake' }); };
-  broker.src = BASE + 'index.html?show-broker-ui=true&mini-display-type=true';
-  setTimeout(function () { if (!registered) chip('chipReg', 'Registrierung: keine Antwort (Konsole pruefen)', 'bad'); }, 8000);
+  document.getElementById('tabCopilot').onclick = function () { if (state.interactionId && ui.mode !== 'idle') copilotOpen = !copilotOpen; updateAcwBox(); };
+  document.getElementById('tabAcw').onclick = function () { if (state.interactionId && ui.mode !== 'idle') acwOpen = !acwOpen; updateAcwBox(); };
+  if (!COMPOSABLE || ACW_MODE === 'off') document.getElementById('tabs').style.display = 'none';
+  document.getElementById('btnDebug').onclick = function () { document.body.classList.toggle('dbgopen'); };
+
+  var verEl = document.getElementById('ctiVersion');
+  var verParts = CTI_VERSION.split(' \u00b7 ');
+  var verB = document.createElement('b'); verB.textContent = verParts[1] || CTI_VERSION;
+  var verS = document.createElement('span'); verS.textContent = verParts[0] || '';
+  verEl.appendChild(verB); verEl.appendChild(verS);
+  verEl.title = 'CTI-Version: ' + CTI_VERSION;
+
+  // Genesys-Anmeldung: Das Telefon-iFrame bleibt unsichtbar, erscheint aber als Overlay, wenn noch keine Verbindung steht.
+  if (params.get('phone') === 'show') phoneEl.classList.add('login');
+  setTimeout(function () { if (!state.ready) phoneEl.classList.add('login'); }, 4000);
+
+  if (COMPOSABLE) cdStart();
+  frame.src = FRAME_SRC;
+  log('iFrame wird geladen');
 })();
 </script>
 </body>
