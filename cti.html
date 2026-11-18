@@ -29,6 +29,7 @@
   .ring { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); display: flex; align-items: center; justify-content: center; }
   .dot { width: 14px; height: 14px; border-radius: 50%; background: #9aa7b4; flex: none; --pulse: 25,169,116; }
   .dot.ready, .dot.p-green { background: var(--ok); }
+  .dot.p-blue { background: #0a6fb3; --pulse: 10,111,179; }
   .dot.p-orange { background: var(--warn); }
   .dot.p-red { background: var(--danger); }
   .dot.p-grey { background: #9aa7b4; }
@@ -121,9 +122,9 @@
 
   /* v16 Compact Rail: rail stays fixed; feature panels expand only on demand. */
   .app { width: 68px; max-width: 100%; transition: width .22s ease; overflow: visible; }
-  .app.panel-open { width: min(568px, 100%); }
+  .app.panel-open { width: min(408px, 100%); }
   .app.status-open:not(.panel-open) { width: min(328px, 100%); }
-  .main { display: none; flex: 0 0 500px; width: 500px; min-width: 0; margin: 8px; overflow: hidden; }
+  .main { display: none; flex: 0 0 340px; width: 340px; min-width: 0; margin: 8px; overflow: hidden; }
   .app.panel-open .main { display: block; }
   .inter, .acwbox { display: none; position: absolute; inset: 0; transform: none !important; pointer-events: auto; }
   .main.show-copilot .inter { display: block; }
@@ -267,7 +268,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '17.11.2026 · v17 DynamicRail';
+  var CTI_VERSION = '18.11.2026 · v18 Compact340';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -312,7 +313,7 @@
   // ---------- Oberflaeche: Status, Platzhalter, Zoom, Telefon ein/aus ----------
   var ui = { mode: 'idle', number: '', t0: 0, t1: 0, tick: null, presence: '', routing: '' };
   var PRESENCE = {
-    AVAILABLE: ['Verf\u00fcgbar', 'p-green'], ON_QUEUE: ['In Warteschlange', 'p-green'],
+    AVAILABLE: ['Verf\u00fcgbar', 'p-green'], ON_QUEUE: ['In Warteschlange', 'p-blue'],
     AWAY: ['Abwesend', 'p-orange'], BREAK: ['Pause', 'p-orange'], MEAL: ['Essenspause', 'p-orange'],
     BUSY: ['Besch\u00e4ftigt', 'p-red'], MEETING: ['Besprechung', 'p-red'], TRAINING: ['Schulung', 'p-red'],
     OFFLINE: ['Offline', 'p-grey']
