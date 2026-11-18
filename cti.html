@@ -135,6 +135,14 @@
   .main.show-copilot.show-acw .acwbox { flex: 1 1 0; }
   .scalebox { transform: none !important; width: 100% !important; height: 100% !important; }
   .scalebox iframe, .acwbox iframe { width: 100% !important; height: 100% !important; }
+
+  /* v19 Idle panel: Form2App fills the otherwise unused 340px area. */
+  .app.idle-app { width: min(408px, 100%); }
+  .app.idle-app .main { display: block; }
+  .idleapp { display: none; position: absolute; inset: 0; overflow: hidden; background: #f4f6f8; }
+  .app.idle-app .idleapp { display: block; }
+  .idleapp iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+  .idleapp-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; text-align: center; color: #64748b; font-size: 12px; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -170,6 +178,10 @@
   </aside>
 
   <div class="main">
+    <section class="idleapp" id="idleApp">
+      <iframe id="form2AppFrame" title="Form2App - Power Apps" src="https://apps.powerapps.com/play/e/ad2dd21e-7cdf-e91f-b7fb-04cb30768246/a/171ba6a1-1b83-4f68-8294-866e3314d311?tenantId=fd738606-95d6-4efd-906c-3373a88a6a6a&hint=ac5f913c-523a-4f7a-a140-3b2ff931d86f&sourcetime=1764139493006&source=portal" allow="clipboard-read; clipboard-write"></iframe>
+      <div class="idleapp-fallback">Form2App wird geladen ...</div>
+    </section>
     <section class="phone" id="phone">
       <div class="phonehead">Bitte bei Genesys anmelden</div>
       <iframe id="genesysFrame"
@@ -268,7 +280,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '18.11.2026 · v18 Compact340';
+  var CTI_VERSION = '18.11.2026 · v19 Form2AppIdle';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -683,6 +695,7 @@
     if (!acwEnabled) acwOpen = false;
     main.classList.toggle('show-copilot', hasConversation && copilotOpen);
     main.classList.toggle('show-acw', hasConversation && acwOpen);
+    app.classList.toggle('idle-app', !hasConversation);
     app.classList.toggle('panel-open', hasConversation && (copilotOpen || acwOpen));
     document.getElementById('tabCopilot').classList.toggle('on', hasConversation && copilotOpen);
     document.getElementById('tabAcw').classList.toggle('on', hasConversation && acwOpen);
