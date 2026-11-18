@@ -20,7 +20,7 @@
 
   /* ---- Seitenleiste ---- */
   .rail { flex: 0 0 68px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 10px 0 8px;
-          background: linear-gradient(180deg, var(--rail1), var(--rail2)); color: #fff; z-index: 20; }
+          background: #1d232a; color: #fff; z-index: 20; }
   .statusbtn { width: 60px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 9px 3px 8px;
                background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.16); border-radius: 16px; color: #fff; cursor: pointer;
                transition: background .15s, transform .12s; }
@@ -121,14 +121,17 @@
 
   /* v16 Compact Rail: rail stays fixed; feature panels expand only on demand. */
   .app { width: 68px; max-width: 100%; transition: width .22s ease; overflow: visible; }
-  .app.panel-open { width: min(488px, 100%); }
-  .main { display: none; flex: 0 0 420px; width: 420px; min-width: 0; margin: 8px; overflow: hidden; }
+  .app.panel-open { width: min(568px, 100%); }
+  .app.status-open:not(.panel-open) { width: min(328px, 100%); }
+  .main { display: none; flex: 0 0 500px; width: 500px; min-width: 0; margin: 8px; overflow: hidden; }
   .app.panel-open .main { display: block; }
   .inter, .acwbox { display: none; position: absolute; inset: 0; transform: none !important; pointer-events: auto; }
   .main.show-copilot .inter { display: block; }
   .main.show-acw .acwbox { display: block; }
   .main.show-copilot.show-acw { display: flex; flex-direction: column; gap: 8px; }
-  .main.show-copilot.show-acw .inter, .main.show-copilot.show-acw .acwbox { display: block; position: relative; inset: auto; flex: 1 1 0; min-height: 0; }
+  .main.show-copilot.show-acw .inter, .main.show-copilot.show-acw .acwbox { display: block; position: relative; inset: auto; min-height: 0; }
+  .main.show-copilot.show-acw .inter { flex: 1.25 1 0; }
+  .main.show-copilot.show-acw .acwbox { flex: 1 1 0; }
   .scalebox { transform: none !important; width: 100% !important; height: 100% !important; }
   .scalebox iframe, .acwbox iframe { width: 100% !important; height: 100% !important; }
 </style>
@@ -264,7 +267,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '17.11.2026 · v16 CompactRail';
+  var CTI_VERSION = '17.11.2026 · v17 DynamicRail';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -672,6 +675,7 @@
     if (!app || !main) return;
     var hasConversation = !!state.interactionId && ui.mode !== 'idle';
     if (hasConversation && !lastHadConversation) copilotOpen = true;
+    if (hasConversation && ui.mode === 'acw') acwOpen = true;
     if (!hasConversation) { copilotOpen = false; acwOpen = false; }
     lastHadConversation = hasConversation;
     var acwEnabled = COMPOSABLE && ACW_MODE !== 'off';
@@ -771,7 +775,7 @@
   updateEmpty();
   // ---------- Seitenleiste: Status-Menue, Tabs, Debug, Version, Anmeldung ----------
   var statusPop = document.getElementById('statusPop');
-  function closeStatusPop() { statusPop.classList.remove('open'); }
+  function closeStatusPop() { statusPop.classList.remove('open'); document.getElementById('app').classList.remove('status-open'); }
   function renderStatusPop() {
     var sel = document.getElementById('statusSelect');
     statusPop.innerHTML = '';
@@ -805,6 +809,7 @@
     if (statusPop.classList.contains('open')) { closeStatusPop(); return; }
     renderStatusPop();
     statusPop.classList.add('open');
+    document.getElementById('app').classList.add('status-open');
   };
   document.addEventListener('click', function (e) { if (!statusPop.contains(e.target)) closeStatusPop(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeStatusPop(); });
