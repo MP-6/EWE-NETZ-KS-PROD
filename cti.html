@@ -140,7 +140,8 @@
   .app.idle-app { width: min(408px, 100%); }
   .app.idle-app .main { display: block; }
   .idleapp { display: none; position: absolute; inset: 0; overflow: hidden; background: #f4f6f8; }
-  .app.idle-app .idleapp { display: block; }
+  .app.idle-app .idleapp { display: none; }
+  .app.idle-app .idleapp.active { display: block; }
   .idleapp iframe { width: 100%; height: 100%; border: 0; background: #fff; }
   .idleapp-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; text-align: center; color: #64748b; font-size: 12px; pointer-events: none; }
 
@@ -302,7 +303,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '18.11.2026 · v22 DualPaneApps';
+  var CTI_VERSION = '18.11.2026 · v23 IdleSwitchFix';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -712,6 +713,10 @@
     if (hasConversation) utilityOpenDuringCall = true;
     document.getElementById('idleApp').classList.toggle('active', utilityApp === 'form2app');
     document.getElementById('kiwiIdleApp').classList.toggle('active', utilityApp === 'kiwi');
+    if (!hasConversation) {
+      document.getElementById('app').classList.add('idle-app');
+      document.getElementById('app').classList.remove('with-side-app');
+    }
     document.getElementById('form2Side').classList.toggle('active', utilityApp === 'form2app');
     document.getElementById('kiwiSide').classList.toggle('active', utilityApp === 'kiwi');
     updateAcwBox();
