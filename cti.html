@@ -140,9 +140,20 @@
   .app.idle-app { width: min(408px, 100%); }
   .app.idle-app .main { display: block; }
   .idleapp { display: none; position: absolute; inset: 0; overflow: hidden; background: #f4f6f8; }
-  .app.idle-app .idleapp { display: block; }
+  .app.idle-app .idleapp.active { display: block; }
   .idleapp iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+  .tab.app-tab svg { width: 20px; height: 20px; }
   .idleapp-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; text-align: center; color: #64748b; font-size: 12px; pointer-events: none; }
+
+  /* v21: conversation controls and utility apps are visually separated. */
+  .tabs { display: flex; flex-direction: column; }
+  .tab.app-tab { order: 20; }
+  #tabForm2App { margin-top: auto; border-top: 1px solid rgba(255,255,255,.16); padding-top: 12px; }
+  #tabKiwi { margin-bottom: 8px; }
+  .tab.app-tab span { color: #cbd5e1; }
+  .tab.app-tab.on { background: rgba(255,255,255,.10); }
+  .tab.app-tab.on span { color: #fff; }
+  #tabCopilot, #tabAcw { order: 5; }
 </style>
 </head>
 <body>
@@ -170,17 +181,23 @@
 
     <div class="spacer"></div>
     <nav class="tabs" id="tabs">
-      <button type="button" class="tab on" id="tabCopilot" title="Agent Copilot"><svg viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg><span>Copilot</span></button>
+<button type="button" class="tab on" id="tabCopilot" title="Agent Copilot"><svg viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg><span>Copilot</span></button>
       <button type="button" class="tab" id="tabAcw" title="Nachbearbeitung"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg><span>Nachbearb.</span></button>
+      <button type="button" class="tab app-tab on" id="tabForm2App" title="Form2App"><svg viewBox="0 0 24 24"><path d="M4 3h16v18H4V3zm2 4v2h12V7H6zm0 4v6h5v-6H6zm7 0v2h5v-2h-5zm0 4v2h5v-2h-5z"/></svg><span>Form2App</span></button>
+      <button type="button" class="tab app-tab" id="tabKiwi" title="KiWi"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 3a7 7 0 1 1-7 7 7 7 0 0 1 7-7zm0 2-1.2 3.7L7 9.5l3.1 2.3-1.9 3.2 3.8-1.2 3.8 1.2-1.9-3.2L17 9.5l-3.8 1.2L12 7z"/></svg><span>KiWi</span></button>
     </nav>
     <button type="button" class="tab dbg" id="btnDebug" title="Debug-Fenster">&#9881;<span>Debug</span></button>
     <div class="ver" id="ctiVersion"></div>
   </aside>
 
   <div class="main">
-    <section class="idleapp" id="idleApp">
+    <section class="idleapp active" id="idleApp">
       <iframe id="form2AppFrame" title="Form2App - Power Apps" src="https://apps.powerapps.com/play/e/ad2dd21e-7cdf-e91f-b7fb-04cb30768246/a/171ba6a1-1b83-4f68-8294-866e3314d311?tenantId=fd738606-95d6-4efd-906c-3373a88a6a6a&hint=ac5f913c-523a-4f7a-a140-3b2ff931d86f&sourcetime=1764139493006&source=portal" allow="clipboard-read; clipboard-write"></iframe>
       <div class="idleapp-fallback">Form2App wird geladen ...</div>
+    </section>
+    <section class="idleapp" id="kiwiApp">
+      <iframe id="kiwiFrame" title="KiWi" src="https://app.sma.ewe-netz.de/" allow="clipboard-read; clipboard-write"></iframe>
+      <div class="idleapp-fallback">KiWi wird geladen ...</div>
     </section>
     <section class="phone" id="phone">
       <div class="phonehead">Bitte bei Genesys anmelden</div>
@@ -280,7 +297,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '18.11.2026 · v19 Form2AppIdle';
+  var CTI_VERSION = '26.11.2026 · v21 SplitRail';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -682,6 +699,13 @@
   var copilotOpen = false;
   var acwOpen = false;
   var lastHadConversation = false;
+  var idleAppName = 'form2app';
+  function selectIdleApp(name) {
+    idleAppName = name === 'kiwi' ? 'kiwi' : 'form2app';
+    document.getElementById('idleApp').classList.toggle('active', idleAppName === 'form2app');
+    document.getElementById('kiwiApp').classList.toggle('active', idleAppName === 'kiwi');
+    updateAcwBox();
+  }
   function updateAcwBox() {
     var app = document.getElementById('app');
     var main = document.querySelector('.main');
@@ -700,6 +724,8 @@
     document.getElementById('tabCopilot').classList.toggle('on', hasConversation && copilotOpen);
     document.getElementById('tabAcw').classList.toggle('on', hasConversation && acwOpen);
     document.getElementById('tabAcw').classList.toggle('alert', acwEnabled && ui.mode === 'acw' && !acwOpen);
+    document.getElementById('tabForm2App').classList.toggle('on', !hasConversation && idleAppName === 'form2app');
+    document.getElementById('tabKiwi').classList.toggle('on', !hasConversation && idleAppName === 'kiwi');
   }
 
   function cdPost(type, data) {
@@ -828,9 +854,12 @@
   document.addEventListener('click', function (e) { if (!statusPop.contains(e.target)) closeStatusPop(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeStatusPop(); });
 
+  document.getElementById('tabForm2App').onclick = function () { selectIdleApp('form2app'); };
+  document.getElementById('tabKiwi').onclick = function () { selectIdleApp('kiwi'); };
   document.getElementById('tabCopilot').onclick = function () { if (state.interactionId && ui.mode !== 'idle') copilotOpen = !copilotOpen; updateAcwBox(); };
   document.getElementById('tabAcw').onclick = function () { if (state.interactionId && ui.mode !== 'idle') acwOpen = !acwOpen; updateAcwBox(); };
-  if (!COMPOSABLE || ACW_MODE === 'off') document.getElementById('tabs').style.display = 'none';
+  if (!COMPOSABLE) document.getElementById('tabCopilot').style.display = 'none';
+  if (!COMPOSABLE || ACW_MODE === 'off') document.getElementById('tabAcw').style.display = 'none';
   document.getElementById('btnDebug').onclick = function () { document.body.classList.toggle('dbgopen'); };
 
   var verEl = document.getElementById('ctiVersion');
