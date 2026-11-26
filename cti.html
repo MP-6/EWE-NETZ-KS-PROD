@@ -146,8 +146,9 @@
   .idleapp-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; text-align: center; color: #64748b; font-size: 12px; pointer-events: none; }
 
   /* v22: utility apps can sit to the right of the conversation panel. */
-  .app.with-side-app { width: min(408px, 100%); overflow: visible; }
-  .sideapps { display:none; position:absolute; left:408px; top:8px; bottom:8px; width:340px; overflow:hidden; border-radius:10px; background:#f4f6f8; z-index:30; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+  .app.with-side-app { width: 748px; max-width: none; overflow: hidden; }
+  .sideapps { display:none; flex:0 0 340px; width:340px; min-width:340px; margin:8px 8px 8px 0; position:relative; overflow:hidden; border-radius:10px; background:#f4f6f8; z-index:30; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+  .app.with-side-app .main { display:block; flex:0 0 340px; width:340px; }
   .app.with-side-app .sideapps { display:block; }
   .sideapp { display:none; position:absolute; inset:0; background:#fff; }
   .sideapp.active { display:block; }
@@ -303,7 +304,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '18.11.2026 · v24 RightSideApps';
+  var CTI_VERSION = '18.11.2026 · v25 SidePanelInHost';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -873,8 +874,16 @@
   document.addEventListener('click', function (e) { if (!statusPop.contains(e.target)) closeStatusPop(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeStatusPop(); });
 
-  document.getElementById('tabForm2App').onclick = function () { selectUtilityApp('form2app'); };
-  document.getElementById('tabKiwi').onclick = function () { selectUtilityApp('kiwi'); };
+  document.getElementById('tabForm2App').onclick = function () {
+    var activeCall = !!state.interactionId && ui.mode !== 'idle';
+    if (activeCall && utilityOpenDuringCall && utilityApp === 'form2app') { utilityOpenDuringCall = false; updateAcwBox(); }
+    else selectUtilityApp('form2app');
+  };
+  document.getElementById('tabKiwi').onclick = function () {
+    var activeCall = !!state.interactionId && ui.mode !== 'idle';
+    if (activeCall && utilityOpenDuringCall && utilityApp === 'kiwi') { utilityOpenDuringCall = false; updateAcwBox(); }
+    else selectUtilityApp('kiwi');
+  };
   document.getElementById('tabCopilot').onclick = function () { if (state.interactionId && ui.mode !== 'idle') copilotOpen = !copilotOpen; updateAcwBox(); };
   document.getElementById('tabAcw').onclick = function () { if (state.interactionId && ui.mode !== 'idle') acwOpen = !acwOpen; updateAcwBox(); };
   if (!COMPOSABLE || ACW_MODE === 'off') document.getElementById('tabs').style.display = 'none';
