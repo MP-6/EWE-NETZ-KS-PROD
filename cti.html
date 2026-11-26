@@ -122,7 +122,7 @@
 
   /* v16 Compact Rail: rail stays fixed; feature panels expand only on demand. */
   .app { width: 68px; max-width: 100%; transition: width .22s ease; overflow: visible; }
-  .app.panel-open { width: min(408px, 100%); }
+  .app.panel-open { width: min(424px, 100%); }
   .app.status-open:not(.panel-open) { width: min(328px, 100%); }
   .main { display: none; flex: 0 0 340px; width: 340px; min-width: 0; margin: 8px; overflow: hidden; }
   .app.panel-open .main { display: block; }
@@ -136,20 +136,37 @@
   .scalebox { transform: none !important; width: 100% !important; height: 100% !important; }
   .scalebox iframe, .acwbox iframe { width: 100% !important; height: 100% !important; }
 
-  /* v19 Idle panel: Form2App fills the otherwise unused 340px area. */
-  .app.idle-app { width: min(408px, 100%); }
+  /* v29: Form2App und KiWi gibt es nur einmal (kein Neuladen). Ohne Gespraech sitzen sie im 340-px-Bereich,
+     im Gespraech oeffnen sie sich rechts neben dem Copilot und nutzen die restliche Breite des SAP-Fensters. */
+  .app.idle-app { width: min(424px, 100%); }
   .app.idle-app .main { display: block; }
-  .idleapp { display: none; position: absolute; inset: 0; overflow: hidden; background: #f4f6f8; }
-  .app.idle-app .idleapp { display: block; }
-  .idleapp iframe { width: 100%; height: 100%; border: 0; background: #fff; }
-  .idleapp-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; text-align: center; color: #64748b; font-size: 12px; pointer-events: none; }
+  .app.with-side-app { width: 100%; max-width: none; overflow: hidden; }
+  .app.with-side-app .main { display: block; flex: 0 0 340px; width: 340px; }
+  .app.with-side-app.no-main .main { display: none; }
+  .utility { display: none; position: absolute; top: 8px; bottom: 8px; z-index: 15; border-radius: 16px; overflow: hidden;
+             background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+  .app.idle-app .utility { display: block; left: 76px; width: 340px; }
+  .app.with-side-app .utility { display: block; left: 424px; right: 8px; width: auto; }
+  .app.with-side-app.no-main .utility { left: 76px; }
+  .uapp { display: none; position: absolute; inset: 0; background: #fff; }
+  .uapp.active { display: block; }
+  .uapp iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+  /* Schmales SAP-Fenster (< 720 px): die App ersetzt den Copilot, statt daneben zu sitzen */
+  @media (max-width: 719px) {
+    .app.with-side-app .main { display: none; }
+    .app.with-side-app .utility { left: 76px; }
+  }
+  .tabs { display: flex; flex-direction: column; }
+  .tab.app-tab { order: 20; }
+  #tabForm2App { margin-top: auto; border-top: 1px solid rgba(255,255,255,.16); padding-top: 12px; }
+  #tabCopilot, #tabAcw { order: 5; }
 </style>
 </head>
 <body>
 
 <!-- Provider URL fuer das SAP Live Interaction Widget.
      Optionen: ?composable=1 | ?acw=acw|always|off | ?debug=1 (Zahnrad in der Seitenleiste) | ?theme=dark|light|auto
-               ?width=340 (feste Breite, 0 = volle Breite) | ?phone=show (Genesys-Anmeldung zeigen) | ?sap=<format> | ?name=<Komponentenname> -->
+               ?width=<px> (Inhalt begrenzen, 0 = volle Breite) | ?phone=show (Genesys-Anmeldung zeigen) | ?sap=<format> | ?name=<Komponentenname> -->
 <div class="app" id="app">
 
   <aside class="rail">
@@ -172,16 +189,15 @@
     <nav class="tabs" id="tabs">
       <button type="button" class="tab on" id="tabCopilot" title="Agent Copilot"><svg viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg><span>Copilot</span></button>
       <button type="button" class="tab" id="tabAcw" title="Nachbearbeitung"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg><span>Nachbearb.</span></button>
-    </nav>
+    
+      <button type="button" class="tab app-tab on" id="tabForm2App" title="Form2App"><svg viewBox="0 0 24 24"><path d="M4 3h16v18H4V3zm2 4v2h12V7H6zm0 4v6h5v-6H6zm7 0v2h5v-2h-5zm0 4v2h5v-2h-5z"/></svg><span>Form2App</span></button>
+      <button type="button" class="tab app-tab" id="tabKiwi" title="KiWi"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 3a7 7 0 1 1-7 7 7 7 0 0 1 7-7z"/></svg><span>KiWi</span></button>
+</nav>
     <button type="button" class="tab dbg" id="btnDebug" title="Debug-Fenster">&#9881;<span>Debug</span></button>
     <div class="ver" id="ctiVersion"></div>
   </aside>
 
   <div class="main">
-    <section class="idleapp" id="idleApp">
-      <iframe id="form2AppFrame" title="Form2App - Power Apps" src="https://apps.powerapps.com/play/e/ad2dd21e-7cdf-e91f-b7fb-04cb30768246/a/171ba6a1-1b83-4f68-8294-866e3314d311?tenantId=fd738606-95d6-4efd-906c-3373a88a6a6a&hint=ac5f913c-523a-4f7a-a140-3b2ff931d86f&sourcetime=1764139493006&source=portal" allow="clipboard-read; clipboard-write"></iframe>
-      <div class="idleapp-fallback">Form2App wird geladen ...</div>
-    </section>
     <section class="phone" id="phone">
       <div class="phonehead">Bitte bei Genesys anmelden</div>
       <iframe id="genesysFrame"
@@ -241,6 +257,11 @@
 
   </div>
 
+  <aside class="utility" id="utility">
+    <section class="uapp active" id="uForm2"><iframe id="form2AppFrame" title="Form2App - Power Apps" src="https://apps.powerapps.com/play/e/ad2dd21e-7cdf-e91f-b7fb-04cb30768246/a/171ba6a1-1b83-4f68-8294-866e3314d311?tenantId=fd738606-95d6-4efd-906c-3373a88a6a6a&hint=ac5f913c-523a-4f7a-a140-3b2ff931d86f&sourcetime=1764139493006&source=portal" allow="clipboard-read; clipboard-write"></iframe></section>
+    <section class="uapp" id="uKiwi"><iframe id="kiwiFrame" title="KiWi" loading="lazy" src="https://app.sma.ewe-netz.de/" allow="clipboard-read; clipboard-write"></iframe></section>
+  </aside>
+
   <div class="pop" id="statusPop" role="menu"></div>
 </div>
 
@@ -280,7 +301,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '18.11.2026 · v19 Form2AppIdle';
+  var CTI_VERSION = '26.11.2026 · v29 SideApps';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -682,6 +703,23 @@
   var copilotOpen = false;
   var acwOpen = false;
   var lastHadConversation = false;
+  var utilityApp = 'form2app';
+  var utilityOpenDuringCall = false;
+  function selectUtilityApp(name) {
+    utilityApp = name === 'kiwi' ? 'kiwi' : 'form2app';
+    var hasConversation = !!state.interactionId && ui.mode !== 'idle';
+    if (hasConversation) {
+      utilityOpenDuringCall = true;
+      if (!copilotOpen && !acwOpen) copilotOpen = true;
+    }
+    if (!hasConversation) {
+      document.getElementById('app').classList.add('idle-app');
+      document.getElementById('app').classList.remove('with-side-app');
+    }
+    document.getElementById('uForm2').classList.toggle('active', utilityApp === 'form2app');
+    document.getElementById('uKiwi').classList.toggle('active', utilityApp === 'kiwi');
+    updateAcwBox();
+  }
   function updateAcwBox() {
     var app = document.getElementById('app');
     var main = document.querySelector('.main');
@@ -689,7 +727,7 @@
     var hasConversation = !!state.interactionId && ui.mode !== 'idle';
     if (hasConversation && !lastHadConversation) copilotOpen = true;
     if (hasConversation && ui.mode === 'acw') acwOpen = true;
-    if (!hasConversation) { copilotOpen = false; acwOpen = false; }
+    if (!hasConversation) { copilotOpen = false; acwOpen = false; utilityOpenDuringCall = false; }
     lastHadConversation = hasConversation;
     var acwEnabled = COMPOSABLE && ACW_MODE !== 'off';
     if (!acwEnabled) acwOpen = false;
@@ -697,6 +735,10 @@
     main.classList.toggle('show-acw', hasConversation && acwOpen);
     app.classList.toggle('idle-app', !hasConversation);
     app.classList.toggle('panel-open', hasConversation && (copilotOpen || acwOpen));
+    app.classList.toggle('with-side-app', hasConversation && utilityOpenDuringCall);
+    app.classList.toggle('no-main', hasConversation && utilityOpenDuringCall && !(copilotOpen || acwOpen));
+    document.getElementById('tabForm2App').classList.toggle('on', utilityApp === 'form2app' && (!hasConversation || utilityOpenDuringCall));
+    document.getElementById('tabKiwi').classList.toggle('on', utilityApp === 'kiwi' && (!hasConversation || utilityOpenDuringCall));
     document.getElementById('tabCopilot').classList.toggle('on', hasConversation && copilotOpen);
     document.getElementById('tabAcw').classList.toggle('on', hasConversation && acwOpen);
     document.getElementById('tabAcw').classList.toggle('alert', acwEnabled && ui.mode === 'acw' && !acwOpen);
@@ -828,6 +870,16 @@
   document.addEventListener('click', function (e) { if (!statusPop.contains(e.target)) closeStatusPop(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeStatusPop(); });
 
+  document.getElementById('tabForm2App').onclick = function () {
+    var activeCall = !!state.interactionId && ui.mode !== 'idle';
+    if (activeCall && utilityOpenDuringCall && utilityApp === 'form2app') { utilityOpenDuringCall = false; updateAcwBox(); }
+    else selectUtilityApp('form2app');
+  };
+  document.getElementById('tabKiwi').onclick = function () {
+    var activeCall = !!state.interactionId && ui.mode !== 'idle';
+    if (activeCall && utilityOpenDuringCall && utilityApp === 'kiwi') { utilityOpenDuringCall = false; updateAcwBox(); }
+    else selectUtilityApp('kiwi');
+  };
   document.getElementById('tabCopilot').onclick = function () { if (state.interactionId && ui.mode !== 'idle') copilotOpen = !copilotOpen; updateAcwBox(); };
   document.getElementById('tabAcw').onclick = function () { if (state.interactionId && ui.mode !== 'idle') acwOpen = !acwOpen; updateAcwBox(); };
   if (!COMPOSABLE || ACW_MODE === 'off') document.getElementById('tabs').style.display = 'none';
