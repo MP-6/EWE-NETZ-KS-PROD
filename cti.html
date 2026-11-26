@@ -146,8 +146,8 @@
   .idleapp-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; text-align: center; color: #64748b; font-size: 12px; pointer-events: none; }
 
   /* v22: utility apps can sit to the right of the conversation panel. */
-  .app.with-side-app { width: min(748px, 100%); }
-  .sideapps { display:none; flex:0 0 340px; width:340px; min-width:0; margin:8px 8px 8px 0; position:relative; overflow:hidden; border-radius:10px; background:#f4f6f8; }
+  .app.with-side-app { width: min(408px, 100%); overflow: visible; }
+  .sideapps { display:none; position:absolute; left:408px; top:8px; bottom:8px; width:340px; overflow:hidden; border-radius:10px; background:#f4f6f8; z-index:30; box-shadow:0 8px 24px rgba(0,0,0,.25); }
   .app.with-side-app .sideapps { display:block; }
   .sideapp { display:none; position:absolute; inset:0; background:#fff; }
   .sideapp.active { display:block; }
@@ -303,7 +303,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '18.11.2026 · v23 IdleSwitchFix';
+  var CTI_VERSION = '18.11.2026 · v24 RightSideApps';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -710,7 +710,10 @@
   function selectUtilityApp(name) {
     utilityApp = name === 'kiwi' ? 'kiwi' : 'form2app';
     var hasConversation = !!state.interactionId && ui.mode !== 'idle';
-    if (hasConversation) utilityOpenDuringCall = true;
+    if (hasConversation) {
+      utilityOpenDuringCall = true;
+      if (!copilotOpen && !acwOpen) copilotOpen = true;
+    }
     document.getElementById('idleApp').classList.toggle('active', utilityApp === 'form2app');
     document.getElementById('kiwiIdleApp').classList.toggle('active', utilityApp === 'kiwi');
     if (!hasConversation) {
@@ -736,7 +739,7 @@
     main.classList.toggle('show-acw', hasConversation && acwOpen);
     app.classList.toggle('idle-app', !hasConversation);
     app.classList.toggle('panel-open', hasConversation && (copilotOpen || acwOpen));
-    app.classList.toggle('with-side-app', hasConversation && utilityOpenDuringCall && (copilotOpen || acwOpen));
+    app.classList.toggle('with-side-app', hasConversation && utilityOpenDuringCall);
     document.getElementById('tabForm2App').classList.toggle('on', utilityApp === 'form2app' && (!hasConversation || utilityOpenDuringCall));
     document.getElementById('tabKiwi').classList.toggle('on', utilityApp === 'kiwi' && (!hasConversation || utilityOpenDuringCall));
     document.getElementById('tabCopilot').classList.toggle('on', hasConversation && copilotOpen);
