@@ -140,24 +140,9 @@
   .app.idle-app { width: min(408px, 100%); }
   .app.idle-app .main { display: block; }
   .idleapp { display: none; position: absolute; inset: 0; overflow: hidden; background: #f4f6f8; }
-  .app.idle-app .idleapp { display: none; }
-  .app.idle-app .idleapp.active { display: block; }
+  .app.idle-app .idleapp { display: block; }
   .idleapp iframe { width: 100%; height: 100%; border: 0; background: #fff; }
   .idleapp-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; text-align: center; color: #64748b; font-size: 12px; pointer-events: none; }
-
-  /* v22: utility apps can sit to the right of the conversation panel. */
-  .app.with-side-app { width: 748px; max-width: none; overflow: hidden; }
-  .sideapps { display:none; flex:0 0 340px; width:340px; min-width:340px; margin:8px 8px 8px 0; position:relative; overflow:hidden; border-radius:10px; background:#f4f6f8; z-index:30; box-shadow:0 8px 24px rgba(0,0,0,.25); }
-  .app.with-side-app .main { display:block; flex:0 0 340px; width:340px; }
-  .app.with-side-app .sideapps { display:block; }
-  .sideapp { display:none; position:absolute; inset:0; background:#fff; }
-  .sideapp.active { display:block; }
-  .sideapp iframe { width:100%; height:100%; border:0; background:#fff; }
-  .idleapp-fallback { display:none !important; }
-  .tabs { display:flex; flex-direction:column; }
-  .tab.app-tab { order:20; }
-  #tabForm2App { margin-top:auto; border-top:1px solid rgba(255,255,255,.16); padding-top:12px; }
-  #tabCopilot,#tabAcw { order:5; }
 </style>
 </head>
 <body>
@@ -187,20 +172,15 @@
     <nav class="tabs" id="tabs">
       <button type="button" class="tab on" id="tabCopilot" title="Agent Copilot"><svg viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg><span>Copilot</span></button>
       <button type="button" class="tab" id="tabAcw" title="Nachbearbeitung"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg><span>Nachbearb.</span></button>
-    
-      <button type="button" class="tab app-tab on" id="tabForm2App" title="Form2App"><svg viewBox="0 0 24 24"><path d="M4 3h16v18H4V3zm2 4v2h12V7H6zm0 4v6h5v-6H6zm7 0v2h5v-2h-5zm0 4v2h5v-2h-5z"/></svg><span>Form2App</span></button>
-      <button type="button" class="tab app-tab" id="tabKiwi" title="KiWi"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 3a7 7 0 1 1-7 7 7 7 0 0 1 7-7z"/></svg><span>KiWi</span></button>
-</nav>
+    </nav>
     <button type="button" class="tab dbg" id="btnDebug" title="Debug-Fenster">&#9881;<span>Debug</span></button>
     <div class="ver" id="ctiVersion"></div>
   </aside>
 
   <div class="main">
-    <section class="idleapp active" id="idleApp">
+    <section class="idleapp" id="idleApp">
       <iframe id="form2AppFrame" title="Form2App - Power Apps" src="https://apps.powerapps.com/play/e/ad2dd21e-7cdf-e91f-b7fb-04cb30768246/a/171ba6a1-1b83-4f68-8294-866e3314d311?tenantId=fd738606-95d6-4efd-906c-3373a88a6a6a&hint=ac5f913c-523a-4f7a-a140-3b2ff931d86f&sourcetime=1764139493006&source=portal" allow="clipboard-read; clipboard-write"></iframe>
-    </section>
-    <section class="idleapp" id="kiwiIdleApp">
-      <iframe title="KiWi" src="https://app.sma.ewe-netz.de/" allow="clipboard-read; clipboard-write"></iframe>
+      <div class="idleapp-fallback">Form2App wird geladen ...</div>
     </section>
     <section class="phone" id="phone">
       <div class="phonehead">Bitte bei Genesys anmelden</div>
@@ -221,10 +201,6 @@
         <p id="emptyText">Bitte im Anmeldefenster anmelden.</p>
       </div>
     </main>
-  <aside class="sideapps" id="sideApps">
-    <section class="sideapp active" id="form2Side"><iframe title="Form2App" src="https://apps.powerapps.com/play/e/ad2dd21e-7cdf-e91f-b7fb-04cb30768246/a/171ba6a1-1b83-4f68-8294-866e3314d311?tenantId=fd738606-95d6-4efd-906c-3373a88a6a6a&hint=ac5f913c-523a-4f7a-a140-3b2ff931d86f&sourcetime=1764139493006&source=portal" allow="clipboard-read; clipboard-write"></iframe></section>
-    <section class="sideapp" id="kiwiSide"><iframe title="KiWi" src="https://app.sma.ewe-netz.de/" allow="clipboard-read; clipboard-write"></iframe></section>
-  </aside>
 
     <section class="acwbox" id="acwBox">
       <iframe id="acwFrame" title="Genesys Cloud Nachbearbeitung (ACW)"
@@ -304,7 +280,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '18.11.2026 · v25 SidePanelInHost';
+  var CTI_VERSION = '18.11.2026 · v19 Form2AppIdle';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -706,25 +682,6 @@
   var copilotOpen = false;
   var acwOpen = false;
   var lastHadConversation = false;
-  var utilityApp = 'form2app';
-  var utilityOpenDuringCall = false;
-  function selectUtilityApp(name) {
-    utilityApp = name === 'kiwi' ? 'kiwi' : 'form2app';
-    var hasConversation = !!state.interactionId && ui.mode !== 'idle';
-    if (hasConversation) {
-      utilityOpenDuringCall = true;
-      if (!copilotOpen && !acwOpen) copilotOpen = true;
-    }
-    document.getElementById('idleApp').classList.toggle('active', utilityApp === 'form2app');
-    document.getElementById('kiwiIdleApp').classList.toggle('active', utilityApp === 'kiwi');
-    if (!hasConversation) {
-      document.getElementById('app').classList.add('idle-app');
-      document.getElementById('app').classList.remove('with-side-app');
-    }
-    document.getElementById('form2Side').classList.toggle('active', utilityApp === 'form2app');
-    document.getElementById('kiwiSide').classList.toggle('active', utilityApp === 'kiwi');
-    updateAcwBox();
-  }
   function updateAcwBox() {
     var app = document.getElementById('app');
     var main = document.querySelector('.main');
@@ -732,7 +689,7 @@
     var hasConversation = !!state.interactionId && ui.mode !== 'idle';
     if (hasConversation && !lastHadConversation) copilotOpen = true;
     if (hasConversation && ui.mode === 'acw') acwOpen = true;
-    if (!hasConversation) { copilotOpen = false; acwOpen = false; utilityOpenDuringCall = false; }
+    if (!hasConversation) { copilotOpen = false; acwOpen = false; }
     lastHadConversation = hasConversation;
     var acwEnabled = COMPOSABLE && ACW_MODE !== 'off';
     if (!acwEnabled) acwOpen = false;
@@ -740,9 +697,6 @@
     main.classList.toggle('show-acw', hasConversation && acwOpen);
     app.classList.toggle('idle-app', !hasConversation);
     app.classList.toggle('panel-open', hasConversation && (copilotOpen || acwOpen));
-    app.classList.toggle('with-side-app', hasConversation && utilityOpenDuringCall);
-    document.getElementById('tabForm2App').classList.toggle('on', utilityApp === 'form2app' && (!hasConversation || utilityOpenDuringCall));
-    document.getElementById('tabKiwi').classList.toggle('on', utilityApp === 'kiwi' && (!hasConversation || utilityOpenDuringCall));
     document.getElementById('tabCopilot').classList.toggle('on', hasConversation && copilotOpen);
     document.getElementById('tabAcw').classList.toggle('on', hasConversation && acwOpen);
     document.getElementById('tabAcw').classList.toggle('alert', acwEnabled && ui.mode === 'acw' && !acwOpen);
@@ -874,16 +828,6 @@
   document.addEventListener('click', function (e) { if (!statusPop.contains(e.target)) closeStatusPop(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeStatusPop(); });
 
-  document.getElementById('tabForm2App').onclick = function () {
-    var activeCall = !!state.interactionId && ui.mode !== 'idle';
-    if (activeCall && utilityOpenDuringCall && utilityApp === 'form2app') { utilityOpenDuringCall = false; updateAcwBox(); }
-    else selectUtilityApp('form2app');
-  };
-  document.getElementById('tabKiwi').onclick = function () {
-    var activeCall = !!state.interactionId && ui.mode !== 'idle';
-    if (activeCall && utilityOpenDuringCall && utilityApp === 'kiwi') { utilityOpenDuringCall = false; updateAcwBox(); }
-    else selectUtilityApp('kiwi');
-  };
   document.getElementById('tabCopilot').onclick = function () { if (state.interactionId && ui.mode !== 'idle') copilotOpen = !copilotOpen; updateAcwBox(); };
   document.getElementById('tabAcw').onclick = function () { if (state.interactionId && ui.mode !== 'idle') acwOpen = !acwOpen; updateAcwBox(); };
   if (!COMPOSABLE || ACW_MODE === 'off') document.getElementById('tabs').style.display = 'none';
