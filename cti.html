@@ -301,7 +301,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = 'v36';
+  var CTI_VERSION = 'v37';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -318,7 +318,8 @@
     call: parseInt(params.get('hCall'), 10) || parseInt(params.get('phoneHeight'), 10) || 270,
     acw:  parseInt(params.get('hAcw'), 10) || 330
   };
-  if (DEBUG) document.body.classList.add('debug');
+  DEBUG = true;
+  document.body.classList.add('debug');
 
   function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -478,6 +479,7 @@
   }
 
   function setMode(mode, number) {
+    log('[PANEL] setMode ' + ui.mode + ' -> ' + mode + ' interaction=' + (state.interactionId || '-'));
     ui.mode = mode;
     if (number !== undefined) ui.number = number || '';
     clearInterval(ui.tick);
@@ -771,6 +773,7 @@
     updateAcwBox();
   }
   function updateAcwBox() {
+    log('[PANEL] update mode=' + ui.mode + ' interaction=' + (state.interactionId || '-') + ' copilotOpen=' + copilotOpen + ' acwOpen=' + acwOpen + ' pending=' + acwPending + ' utility=' + utilityOpenDuringCall);
     var app = document.getElementById('app');
     var main = document.querySelector('.main');
     if (!app || !main) return;
