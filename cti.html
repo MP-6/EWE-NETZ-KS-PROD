@@ -165,6 +165,8 @@
   .quickcall.show { display:flex; }
   .qbtn { width:27px; height:27px; border-radius:7px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
   .qbtn:hover { background:rgba(255,255,255,.16); }
+  .qbtn.muted { background:#c0392b; border-color:#e74c3c; box-shadow:0 0 0 2px rgba(231,76,60,.18); }
+  .qbtn.held { background:#e67e22; border-color:#f39c12; box-shadow:0 0 0 2px rgba(243,156,18,.18); }
   .qbtn:disabled { opacity:.28; cursor:default; }
   .qbtn svg { width:15px; height:15px; fill:currentColor; }
 </style>
@@ -270,7 +272,7 @@
 
   <aside class="utility" id="utility">
     <section class="uapp active" id="uForm2"><iframe id="form2AppFrame" title="Form2App - Power Apps" src="https://apps.powerapps.com/play/e/ad2dd21e-7cdf-e91f-b7fb-04cb30768246/a/171ba6a1-1b83-4f68-8294-866e3314d311?tenantId=fd738606-95d6-4efd-906c-3373a88a6a6a&hint=ac5f913c-523a-4f7a-a140-3b2ff931d86f&sourcetime=1764139493006&source=portal" allow="clipboard-read; clipboard-write"></iframe></section>
-    <section class="uapp" id="uKiwi"><iframe id="kiwiFrame" title="KiWi" loading="lazy" src="https://ewe-netz.sabio.de/web/" allow="clipboard-read; clipboard-write"></iframe></section>
+    <section class="uapp" id="uKiwi"><iframe id="kiwiFrame" title="KiWi" loading="lazy" src="https://app.sma.ewe-netz.de/" allow="clipboard-read; clipboard-write"></iframe></section>
   </aside>
 
   <div class="pop" id="statusPop" role="menu"></div>
@@ -312,7 +314,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = 'v38';
+  var CTI_VERSION = 'v39';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -361,6 +363,7 @@
 
   // ---------- Oberflaeche: Status, Platzhalter, Zoom, Telefon ein/aus ----------
   var ui = { mode: 'idle', number: '', t0: 0, t1: 0, tick: null, presence: '', routing: '' };
+  var callControl = { muted: false, held: false };
   var PRESENCE = {
     AVAILABLE: ['Verf\u00fcgbar', 'p-green'], ON_QUEUE: ['In Warteschlange', 'p-blue'],
     AWAY: ['Abwesend', 'p-orange'], BREAK: ['Pause', 'p-orange'], MEAL: ['Essenspause', 'p-orange'],
@@ -420,6 +423,16 @@
     // Auswahl erst wieder dauerhaft umstellen, wenn Genesys den neuen Status zurueckmeldet.
     setTimeout(function () { if (ui.presence !== key) { selEl.value = ui.presence || ''; log('Statuswechsel noch nicht von Genesys bestaetigt'); } }, 300);
   });
+  function renderCallControls() {
+    var mute = document.getElementById('btnQuickMute');
+    var hold = document.getElementById('btnQuickHold');
+    if (!mute || !hold) return;
+    mute.classList.toggle('muted', callControl.muted);
+    hold.classList.toggle('held', callControl.held);
+    mute.title = callControl.muted ? 'Stummschaltung aufheben' : 'Stumm';
+    hold.title = callControl.held ? 'Halten beenden' : 'Halten';
+  }
+
   function renderState() {
     var cls = 'dot', title, sub = '';
     var num = ui.number ? ui.number + ' \u00b7 ' : '';
@@ -717,8 +730,12 @@
   document.getElementById('btnHeaderHangup').onclick = hangupCurrent;
   document.getElementById('btnHold').onclick = function () { if (needInteraction()) send('hold', { interactionId: state.interactionId }); };
   document.getElementById('btnMute').onclick = function () { if (needInteraction()) send('mute', { interactionId: state.interactionId }); };
-  document.getElementById('btnQuickHold').onclick = function () { if (ui.mode === 'active' && needInteraction()) send('hold', { interactionId: state.interactionId }); };
-  document.getElementById('btnQuickMute').onclick = function () { if (ui.mode === 'active' && needInteraction()) send('mute', { interactionId: state.interactionId }); };
+  document.getElementById('btnQuickHold').onclick = function () {
+    if (ui.mode === 'active' && needInteraction()) { callControl.held = !callControl.held; renderCallControls(); send('hold', { interactionId: state.interactionId }); }
+  };
+  document.getElementById('btnQuickMute').onclick = function () {
+    if (ui.mode === 'active' && needInteraction()) { callControl.muted = !callControl.muted; renderCallControls(); send('mute', { interactionId: state.interactionId }); }
+  };
 
   var fmtSel = document.getElementById('sapFormat');
   fmtSel.value = sapFormat;
