@@ -67,7 +67,7 @@
   .tab.alert::after { content: ''; position: absolute; top: 5px; right: 10px; width: 9px; height: 9px; border-radius: 50%;
                       background: var(--warn); --pulse: 245,154,50; animation: pulse 1s infinite; }
   .tab.dbg { display: none; font-size: 15px; }
-  body.debug .tab.dbg { display: flex; }
+  body.debug .tab.dbg, body.diag .tab.dbg { display: flex; }
   .ver { display: flex; flex-direction: column; align-items: center; font-size: 9px; line-height: 1.25; opacity: .65; text-align: center; padding: 0 2px; }
   .ver b { font-size: 10px; }
 
@@ -109,7 +109,7 @@
   /* ---- Debug-Fenster (nur mit ?debug=1, Zahnrad in der Seitenleiste) ---- */
   .debugbar { display: none; position: absolute; left: 0; right: 0; bottom: 0; max-height: 78%; overflow: auto; z-index: 40; padding: 8px;
               background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
-  body.debug.dbgopen .debugbar { display: block; }
+  body.debug.dbgopen .debugbar, body.diag.dbgopen .debugbar { display: block; }
   .row { display: flex; gap: 6px; margin: 4px 0; }
   .row input, .row select { flex: 1; min-width: 0; padding: 4px; }
   .row button { padding: 4px 8px; cursor: pointer; border: 0; border-radius: 4px; background: var(--accent); color: #fff; }
@@ -301,7 +301,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = 'v34';
+  var CTI_VERSION = 'v35';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -318,7 +318,9 @@
     call: parseInt(params.get('hCall'), 10) || parseInt(params.get('phoneHeight'), 10) || 270,
     acw:  parseInt(params.get('hAcw'), 10) || 330
   };
-  if (DEBUG) document.body.classList.add('debug');
+  document.body.classList.add('diag');
+  DEBUG = true;
+  document.body.classList.add('debug');
 
   function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -333,6 +335,10 @@
   var state = { ready: false, interactionId: null };
   var calls = {};   // Zustand je Interaktion: {notified, accepted, ended, dialing}
 
+  function acwSnapshot(tag) {
+    log('[ACW ' + tag + '] mode=' + ui.mode + ' pending=' + acwPending + ' open=' + acwOpen +
+      ' recovered=' + acwRecovered + ' routing=' + ui.routing + ' interaction=' + (state.interactionId || '-'));
+  }
   function log(text) {
     if (!DEBUG) return;
     logEl.textContent += '[' + new Date().toLocaleTimeString() + '] ' + text + '\n';
@@ -478,7 +484,7 @@
     if (number !== undefined) ui.number = number || '';
     clearInterval(ui.tick);
     if (mode === 'active') { ui.t0 = Date.now(); ui.tick = setInterval(renderState, 1000); }
-    if (mode === 'acw') { acwPending = true; acwOpen = true; clearTimeout(acwCloseTimer); ui.t1 = Date.now(); ui.tick = setInterval(renderState, 1000); try { sessionStorage.setItem('ctiAcwPending', JSON.stringify({ id: state.interactionId || '', started: ui.t1 })); } catch (e) {} }
+    if (mode === 'acw') { log('[ACW] mode -> acw'); acwPending = true; acwOpen = true; clearTimeout(acwCloseTimer); ui.t1 = Date.now(); ui.tick = setInterval(renderState, 1000); try { sessionStorage.setItem('ctiAcwPending', JSON.stringify({ id: state.interactionId || '', started: ui.t1 })); } catch (e) {} }
     // Altes Genesys-CTI bei Anruf/Nachbearbeitung nicht automatisch aufklappen.
     if (mode !== 'idle') phoneEl.classList.add('collapsed');
     applyPhoneHeight();
@@ -556,7 +562,7 @@
     if (!i) return;
     var id = i.id || (i.old && i.old.id);
     if (!id) return;
-    if (category === 'deallocate') {
+    if (category === 'deallocate') { log('[ACW] interaction deallocate id=' + id);
       clearTimeout(acwCloseTimer);
       clearTimeout(acwOnQueueTimer);
       acwCloseTimer = setTimeout(function () {
@@ -567,7 +573,7 @@
         acwRecovered = false;
         try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
         setMode('idle', '');
-      }, 200);
+      }, 1500);
       return;
     }
     if (i.isChat || i.isEmail || i.isMessage || i.isVoicemail || i.isCallback) return;   // nur Telefonie
@@ -631,20 +637,18 @@
           log('<- Status: ' + ui.presence);
           renderState();
         } else if (d.category === 'routingStatus') {
-          ui.routing = String(typeof d.data === 'string' ? d.data : (d.data && d.data.status) || '').toUpperCase();
-          // ON_QUEUE kann beim Reload kurz erscheinen, obwohl ACW noch offen ist. Deshalb erst
-          // nach einer kurzen stabilen Phase abschliessen und ein frisches ACW mindestens 3 s schuetzen.
+          ui.routing = String(typeof d.data === 'string' ? d.data : (d.data && d.data.status) || '').toUpperCase(); log('[ACW] routingStatus=' + ui.routing + ' pending=' + acwPending + ' recovered=' + acwRecovered);
+          // Nach F5 kann ON_QUEUE bereits beim Wiederverbinden gemeldet werden, obwohl ACW noch offen ist.
+          // Deshalb nur einen wiederhergestellten ACW-Zustand nach stabilen 2 Sekunden ON_QUEUE beenden.
           clearTimeout(acwOnQueueTimer);
-          if (acwPending && ui.routing === 'ON_QUEUE') {
-            var acwAge = Date.now() - (ui.t1 || Date.now());
-            var waitMs = Math.max(1800, 3000 - acwAge);
+          if (acwPending && acwRecovered && ui.routing === 'ON_QUEUE') {
             acwOnQueueTimer = setTimeout(function () {
-              if (acwPending && ui.routing === 'ON_QUEUE') {
+              if (acwPending && acwRecovered && ui.routing === 'ON_QUEUE') {
                 acwPending = false; acwOpen = false; acwRecovered = false;
                 try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
                 setMode('idle', '');
               }
-            }, waitMs);
+            }, 2000);
           }
           renderState();
           updateAcwBox();
