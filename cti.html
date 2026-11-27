@@ -301,7 +301,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '26.11.2026 · v29 SideApps';
+  var CTI_VERSION = '27.11.2026 · v30 StableACW';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -477,7 +477,7 @@
     if (number !== undefined) ui.number = number || '';
     clearInterval(ui.tick);
     if (mode === 'active') { ui.t0 = Date.now(); ui.tick = setInterval(renderState, 1000); }
-    if (mode === 'acw') { ui.t1 = Date.now(); ui.tick = setInterval(renderState, 1000); }
+    if (mode === 'acw') { acwPending = true; acwOpen = true; clearTimeout(acwCloseTimer); ui.t1 = Date.now(); ui.tick = setInterval(renderState, 1000); }
     // Altes Genesys-CTI bei Anruf/Nachbearbeitung nicht automatisch aufklappen.
     if (mode !== 'idle') phoneEl.classList.add('collapsed');
     applyPhoneHeight();
@@ -556,9 +556,14 @@
     var id = i.id || (i.old && i.old.id);
     if (!id) return;
     if (category === 'deallocate') {
-      delete calls[id];
-      state.interactionId = null;
-      setMode('idle', '');
+      clearTimeout(acwCloseTimer);
+      acwCloseTimer = setTimeout(function () {
+        delete calls[id];
+        if (state.interactionId === id) state.interactionId = null;
+        acwPending = false;
+        acwOpen = false;
+        setMode('idle', '');
+      }, 1500);
       return;
     }
     if (i.isChat || i.isEmail || i.isMessage || i.isVoicemail || i.isCallback) return;   // nur Telefonie
@@ -623,14 +628,9 @@
           renderState();
         } else if (d.category === 'routingStatus') {
           ui.routing = String(typeof d.data === 'string' ? d.data : (d.data && d.data.status) || '').toUpperCase();
-          // ACW ist beendet, sobald Genesys wieder IDLE meldet. Nicht auf das spaetere deallocate warten.
-          if (ui.mode === 'acw' && ui.routing === 'IDLE') {
-            if (state.interactionId) delete calls[state.interactionId];
-            state.interactionId = null;
-            setMode('idle', '');
-          } else {
-            renderState();
-          }
+          // IDLE kann waehrend der Nachbearbeitung vorzeitig gemeldet werden.
+        // ACW wird deshalb erst beim deallocate-Ereignis als abgeschlossen behandelt.
+        renderState();
         } else {
           log('<- userAction ' + JSON.stringify(d).slice(0, 200));
         }
@@ -705,6 +705,8 @@
   var lastHadConversation = false;
   var utilityApp = 'form2app';
   var utilityOpenDuringCall = false;
+  var acwPending = false;
+  var acwCloseTimer = null;
   function selectUtilityApp(name) {
     utilityApp = name === 'kiwi' ? 'kiwi' : 'form2app';
     var hasConversation = !!state.interactionId && ui.mode !== 'idle';
@@ -730,18 +732,19 @@
     if (!hasConversation) { copilotOpen = false; acwOpen = false; utilityOpenDuringCall = false; }
     lastHadConversation = hasConversation;
     var acwEnabled = COMPOSABLE && ACW_MODE !== 'off';
+    var acwAvailable = acwEnabled && (acwPending || ui.mode === 'acw');
     if (!acwEnabled) acwOpen = false;
     main.classList.toggle('show-copilot', hasConversation && copilotOpen);
-    main.classList.toggle('show-acw', hasConversation && acwOpen);
+    main.classList.toggle('show-acw', acwAvailable && acwOpen);
     app.classList.toggle('idle-app', !hasConversation);
-    app.classList.toggle('panel-open', hasConversation && (copilotOpen || acwOpen));
+    app.classList.toggle('panel-open', (hasConversation && copilotOpen) || (acwAvailable && acwOpen));
     app.classList.toggle('with-side-app', hasConversation && utilityOpenDuringCall);
-    app.classList.toggle('no-main', hasConversation && utilityOpenDuringCall && !(copilotOpen || acwOpen));
+    app.classList.toggle('no-main', hasConversation && utilityOpenDuringCall && !(copilotOpen || (acwAvailable && acwOpen)));
     document.getElementById('tabForm2App').classList.toggle('on', utilityApp === 'form2app' && (!hasConversation || utilityOpenDuringCall));
     document.getElementById('tabKiwi').classList.toggle('on', utilityApp === 'kiwi' && (!hasConversation || utilityOpenDuringCall));
     document.getElementById('tabCopilot').classList.toggle('on', hasConversation && copilotOpen);
-    document.getElementById('tabAcw').classList.toggle('on', hasConversation && acwOpen);
-    document.getElementById('tabAcw').classList.toggle('alert', acwEnabled && ui.mode === 'acw' && !acwOpen);
+    document.getElementById('tabAcw').classList.toggle('on', acwAvailable && acwOpen);
+    document.getElementById('tabAcw').classList.toggle('alert', acwAvailable && !acwOpen);
   }
 
   function cdPost(type, data) {
@@ -881,7 +884,7 @@
     else selectUtilityApp('kiwi');
   };
   document.getElementById('tabCopilot').onclick = function () { if (state.interactionId && ui.mode !== 'idle') copilotOpen = !copilotOpen; updateAcwBox(); };
-  document.getElementById('tabAcw').onclick = function () { if (state.interactionId && ui.mode !== 'idle') acwOpen = !acwOpen; updateAcwBox(); };
+  document.getElementById('tabAcw').onclick = function () { if (acwPending || (state.interactionId && ui.mode !== 'idle')) acwOpen = !acwOpen; updateAcwBox(); };
   if (!COMPOSABLE || ACW_MODE === 'off') document.getElementById('tabs').style.display = 'none';
   document.getElementById('btnDebug').onclick = function () { document.body.classList.toggle('dbgopen'); };
 
