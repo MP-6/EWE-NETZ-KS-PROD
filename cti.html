@@ -301,7 +301,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = 'v33';
+  var CTI_VERSION = 'v34';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -567,7 +567,7 @@
         acwRecovered = false;
         try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
         setMode('idle', '');
-      }, 1500);
+      }, 200);
       return;
     }
     if (i.isChat || i.isEmail || i.isMessage || i.isVoicemail || i.isCallback) return;   // nur Telefonie
@@ -632,17 +632,19 @@
           renderState();
         } else if (d.category === 'routingStatus') {
           ui.routing = String(typeof d.data === 'string' ? d.data : (d.data && d.data.status) || '').toUpperCase();
-          // Nach F5 kann ON_QUEUE bereits beim Wiederverbinden gemeldet werden, obwohl ACW noch offen ist.
-          // Deshalb nur einen wiederhergestellten ACW-Zustand nach stabilen 2 Sekunden ON_QUEUE beenden.
+          // ON_QUEUE kann beim Reload kurz erscheinen, obwohl ACW noch offen ist. Deshalb erst
+          // nach einer kurzen stabilen Phase abschliessen und ein frisches ACW mindestens 3 s schuetzen.
           clearTimeout(acwOnQueueTimer);
-          if (acwPending && acwRecovered && ui.routing === 'ON_QUEUE') {
+          if (acwPending && ui.routing === 'ON_QUEUE') {
+            var acwAge = Date.now() - (ui.t1 || Date.now());
+            var waitMs = Math.max(1800, 3000 - acwAge);
             acwOnQueueTimer = setTimeout(function () {
-              if (acwPending && acwRecovered && ui.routing === 'ON_QUEUE') {
+              if (acwPending && ui.routing === 'ON_QUEUE') {
                 acwPending = false; acwOpen = false; acwRecovered = false;
                 try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
                 setMode('idle', '');
               }
-            }, 2000);
+            }, waitMs);
           }
           renderState();
           updateAcwBox();
