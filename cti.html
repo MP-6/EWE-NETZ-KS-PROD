@@ -314,7 +314,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = 'v39';
+  var CTI_VERSION = 'v40';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -507,8 +507,17 @@
     document.documentElement.style.setProperty('--phone-h', HEIGHTS[key] + 'px');
   }
 
-  function setMode(mode, number) {
+  function setMode(mode, number, forceIdle) {
     log('[PANEL] setMode ' + ui.mode + ' -> ' + mode + ' interaction=' + (state.interactionId || '-'));
+    // Schutz gegen sporadische Idle-Events waehrend eines laufenden Telefonats.
+    // Eine vorhandene Interaction darf Copilot nicht schliessen. Echte Abschlusspfade
+    // (ACW isDone/deallocate) koennen idle explizit mit forceIdle=true setzen.
+    if (mode === 'idle' && !forceIdle && ui.mode === 'active' && state.interactionId) {
+      log('[PANEL] ignored unexpected idle while call is active interaction=' + state.interactionId);
+      copilotOpen = true;
+      updateAcwBox();
+      return;
+    }
     ui.mode = mode;
     if (number !== undefined) ui.number = number || '';
     clearInterval(ui.tick);
@@ -601,7 +610,7 @@
         acwOpen = false;
         acwRecovered = false;
         try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
-        setMode('idle', '');
+        setMode('idle', '', true);
       }, 1500);
       return;
     }
@@ -629,7 +638,7 @@
       acwOpen = false;
       acwRecovered = false;
       try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
-      setMode('idle', '');
+      setMode('idle', '', true);
       updateAcwBox();
       return;
     }
