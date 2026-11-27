@@ -301,7 +301,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = 'v35';
+  var CTI_VERSION = 'v36';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -318,9 +318,7 @@
     call: parseInt(params.get('hCall'), 10) || parseInt(params.get('phoneHeight'), 10) || 270,
     acw:  parseInt(params.get('hAcw'), 10) || 330
   };
-  document.body.classList.add('diag');
-  DEBUG = true;
-  document.body.classList.add('debug');
+  if (DEBUG) document.body.classList.add('debug');
 
   function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -587,6 +585,23 @@
     var ended = i.isDisconnected === true || i.isDone === true || category === 'disconnect';
 
     if (DEBUG && category !== 'change') log('interaction ' + category + ': ' + JSON.stringify(i).slice(0, 700));
+
+    // Eindeutiges ACW-Ende aus dem realen Framework-Log: interaction acw + isDone=true.
+    // Dieses Signal kommt vor bzw. statt deallocate und darf deshalb sofort aufraeumen.
+    if (category === 'acw' && i.isDone === true) {
+      log('[ACW] completed by interaction acw isDone=true id=' + id);
+      clearTimeout(acwCloseTimer);
+      clearTimeout(acwOnQueueTimer);
+      delete calls[id];
+      if (state.interactionId === id) state.interactionId = null;
+      acwPending = false;
+      acwOpen = false;
+      acwRecovered = false;
+      try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
+      setMode('idle', '');
+      updateAcwBox();
+      return;
+    }
 
     if (!c.notified && !connected && !ended && dir === 'INBOUND') {
       c.notified = true; sapEvent('NOTIFY', id, ani, dir); setMode('ringing', ani);
