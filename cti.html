@@ -160,6 +160,13 @@
   .tab.app-tab { order: 20; }
   #tabForm2App { margin-top: auto; border-top: 1px solid rgba(255,255,255,.16); padding-top: 12px; }
   #tabCopilot, #tabAcw { order: 5; }
+
+  .quickcall { display:none; align-items:center; justify-content:center; gap:5px; margin:2px 0 6px; }
+  .quickcall.show { display:flex; }
+  .qbtn { width:27px; height:27px; border-radius:7px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
+  .qbtn:hover { background:rgba(255,255,255,.16); }
+  .qbtn:disabled { opacity:.28; cursor:default; }
+  .qbtn svg { width:15px; height:15px; fill:currentColor; }
 </style>
 </head>
 <body>
@@ -178,6 +185,10 @@
       <option value="">Nicht verbunden</option>
     </select>
     <span id="stSub" hidden></span>
+    <div class="quickcall" id="quickCall">
+      <button type="button" class="qbtn" id="btnQuickMute" title="Stumm" aria-label="Stumm"><svg viewBox="0 0 24 24"><path d="M19 11h-1.7a5.3 5.3 0 0 1-9.55 3.18l1.45-1.45A3.3 3.3 0 0 0 15.3 10V5a3.3 3.3 0 0 0-5.82-2.12l1.48 1.48A1.3 1.3 0 0 1 13.3 5v4.22L3.7-.38 2.3 1.02 9 7.72V10a3 3 0 0 0 .08.7l-1.53-1.53A5.3 5.3 0 0 0 17.3 11H21v2h-2.1A7.3 7.3 0 0 1 13 17.9V22h-2v-4.1A7.3 7.3 0 0 1 5.1 13H3v-2h1.7c.12.82.43 1.57.88 2.22L4.16 11.8A7.2 7.2 0 0 1 3 10h2a5.2 5.2 0 0 0 10.67 1H19z"/></svg></button>
+      <button type="button" class="qbtn" id="btnQuickHold" title="Halten" aria-label="Halten"><svg viewBox="0 0 24 24"><path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z"/></svg></button>
+    </div>
 
     <div class="callinfo"><div class="ctimer" id="callTimer"></div><div class="cnum" id="callNum"></div></div>
     <div class="call-actions" id="callActions">
@@ -301,7 +312,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = 'v37';
+  var CTI_VERSION = 'v38';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -447,6 +458,11 @@
     var actions = document.getElementById('callActions');
     var answer = document.getElementById('btnHeaderAnswer');
     var hangup = document.getElementById('btnHeaderHangup');
+    var quickCall = document.getElementById('quickCall');
+    var quickActive = ui.mode === 'active' && !!state.interactionId;
+    quickCall.classList.toggle('show', quickActive);
+    document.getElementById('btnQuickMute').disabled = !quickActive;
+    document.getElementById('btnQuickHold').disabled = !quickActive;
     var showAnswer = ui.mode === 'ringing';
     var showHangup = ui.mode === 'ringing' || ui.mode === 'active' || ui.mode === 'dialing';
     answer.style.display = showAnswer ? '' : 'none';
@@ -701,6 +717,8 @@
   document.getElementById('btnHeaderHangup').onclick = hangupCurrent;
   document.getElementById('btnHold').onclick = function () { if (needInteraction()) send('hold', { interactionId: state.interactionId }); };
   document.getElementById('btnMute').onclick = function () { if (needInteraction()) send('mute', { interactionId: state.interactionId }); };
+  document.getElementById('btnQuickHold').onclick = function () { if (ui.mode === 'active' && needInteraction()) send('hold', { interactionId: state.interactionId }); };
+  document.getElementById('btnQuickMute').onclick = function () { if (ui.mode === 'active' && needInteraction()) send('mute', { interactionId: state.interactionId }); };
 
   var fmtSel = document.getElementById('sapFormat');
   fmtSel.value = sapFormat;
