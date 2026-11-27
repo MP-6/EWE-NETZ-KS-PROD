@@ -301,7 +301,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '27.11.2026 · v30 StableACW';
+  var CTI_VERSION = '27.11.2026 · v31 ACWReloadRecovery';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -407,7 +407,8 @@
   function renderState() {
     var cls = 'dot', title, sub = '';
     var num = ui.number ? ui.number + ' \u00b7 ' : '';
-    if (!state.ready) { title = 'Nicht verbunden'; sub = 'Bitte im Telefonfenster anmelden'; }
+    if (acwPending) { cls += ' p-orange'; title = 'In Nachbearbeitung'; sub = 'Nachbearbeitung noch offen'; }
+    else if (!state.ready) { title = 'Nicht verbunden'; sub = 'Bitte im Telefonfenster anmelden'; }
     else if (ui.mode === 'ringing') { cls += ' ringing'; title = 'Eingehender Anruf'; sub = ui.number; }
     else if (ui.mode === 'dialing') { cls += ' ringing'; title = 'Ausgehender Anruf'; sub = ui.number; }
     else if (ui.mode === 'active') { cls += ' active'; title = 'Im Gespr\u00e4ch'; sub = num + mmss(Date.now() - ui.t0); }
@@ -433,7 +434,7 @@
     document.getElementById('statusBtn').title = title + (sub ? ' \u2013 ' + sub : '') + ' (Status \u00e4ndern)';
     var tmr = document.getElementById('callTimer');
     tmr.textContent = ui.mode === 'active' ? mmss(Date.now() - ui.t0)
-      : ui.mode === 'acw' ? mmss(Date.now() - ui.t1)
+      : (ui.mode === 'acw' || acwPending) ? mmss(Date.now() - ui.t1)
       : ui.mode === 'ringing' ? 'Eingehend' : (ui.mode === 'dialing' ? 'W\u00e4hlt' : '');
     var numEl = document.getElementById('callNum');
     numEl.textContent = ui.mode !== 'idle' ? (ui.number || '') : '';
@@ -477,7 +478,7 @@
     if (number !== undefined) ui.number = number || '';
     clearInterval(ui.tick);
     if (mode === 'active') { ui.t0 = Date.now(); ui.tick = setInterval(renderState, 1000); }
-    if (mode === 'acw') { acwPending = true; acwOpen = true; clearTimeout(acwCloseTimer); ui.t1 = Date.now(); ui.tick = setInterval(renderState, 1000); }
+    if (mode === 'acw') { acwPending = true; acwOpen = true; clearTimeout(acwCloseTimer); ui.t1 = Date.now(); ui.tick = setInterval(renderState, 1000); try { sessionStorage.setItem('ctiAcwPending', JSON.stringify({ id: state.interactionId || '', started: ui.t1 })); } catch (e) {} }
     // Altes Genesys-CTI bei Anruf/Nachbearbeitung nicht automatisch aufklappen.
     if (mode !== 'idle') phoneEl.classList.add('collapsed');
     applyPhoneHeight();
@@ -562,6 +563,7 @@
         if (state.interactionId === id) state.interactionId = null;
         acwPending = false;
         acwOpen = false;
+        try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
         setMode('idle', '');
       }, 1500);
       return;
@@ -707,6 +709,15 @@
   var utilityOpenDuringCall = false;
   var acwPending = false;
   var acwCloseTimer = null;
+  try {
+    var savedAcw = JSON.parse(sessionStorage.getItem('ctiAcwPending') || 'null');
+    if (savedAcw && savedAcw.id) {
+      acwPending = true; acwOpen = true;
+      state.interactionId = savedAcw.id;
+      ui.mode = 'acw'; ui.t1 = Number(savedAcw.started) || Date.now();
+      ui.tick = setInterval(renderState, 1000);
+    }
+  } catch (e) {}
   function selectUtilityApp(name) {
     utilityApp = name === 'kiwi' ? 'kiwi' : 'form2app';
     var hasConversation = !!state.interactionId && ui.mode !== 'idle';
@@ -744,7 +755,7 @@
     document.getElementById('tabKiwi').classList.toggle('on', utilityApp === 'kiwi' && (!hasConversation || utilityOpenDuringCall));
     document.getElementById('tabCopilot').classList.toggle('on', hasConversation && copilotOpen);
     document.getElementById('tabAcw').classList.toggle('on', acwAvailable && acwOpen);
-    document.getElementById('tabAcw').classList.toggle('alert', acwAvailable && !acwOpen);
+    document.getElementById('tabAcw').classList.toggle('alert', acwAvailable);
   }
 
   function cdPost(type, data) {
