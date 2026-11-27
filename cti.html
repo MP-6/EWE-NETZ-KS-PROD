@@ -301,7 +301,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = '27.11.2026 · v31 ACWReload';
+  var CTI_VERSION = 'v32';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -402,7 +402,7 @@
     log('-> Statuswechsel angefordert: ' + key + ' / ' + id);
     send('updateStatus', { id: id });
     // Auswahl erst wieder dauerhaft umstellen, wenn Genesys den neuen Status zurueckmeldet.
-    setTimeout(function () { if (ui.presence !== key) { selEl.value = ui.presence || ''; log('Statuswechsel noch nicht von Genesys bestaetigt'); } }, 1500);
+    setTimeout(function () { if (ui.presence !== key) { selEl.value = ui.presence || ''; log('Statuswechsel noch nicht von Genesys bestaetigt'); } }, 250);
   });
   function renderState() {
     var cls = 'dot', title, sub = '';
@@ -630,9 +630,16 @@
           renderState();
         } else if (d.category === 'routingStatus') {
           ui.routing = String(typeof d.data === 'string' ? d.data : (d.data && d.data.status) || '').toUpperCase();
-          // IDLE kann waehrend der Nachbearbeitung vorzeitig gemeldet werden.
-        // ACW wird deshalb erst beim deallocate-Ereignis als abgeschlossen behandelt.
-        renderState();
+          // Nach ACW ist ON_QUEUE/INTERACTING ein eindeutigeres Ende als ein verspaetetes deallocate.
+          if (acwPending && (ui.routing === 'ON_QUEUE' || ui.routing === 'INTERACTING')) {
+            acwPending = false;
+            acwOpen = false;
+            clearTimeout(acwCloseTimer);
+            try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
+            if (ui.mode === 'acw') ui.mode = 'idle';
+          }
+          renderState();
+          updateAcwBox();
         } else {
           log('<- userAction ' + JSON.stringify(d).slice(0, 200));
         }
