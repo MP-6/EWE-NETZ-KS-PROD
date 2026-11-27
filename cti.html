@@ -301,7 +301,7 @@
     UPDATE_TRAINING: 'cd8e2860-4d39-4d29-8bf6-d791131b1992',
     COACHING_FEEDBACK: 'e95a8ddd-713c-4607-a177-adc3933f3c97'
   };
-  var CTI_VERSION = 'v32';
+  var CTI_VERSION = 'v33';
   // SAP-Nachrichtenformat per URL-Parameter: ?sap=flat-string | flat-object | wrap-string | wrap-object | xml | xml-decl
   // (Standard: wrap-object - von SAP akzeptiert)
   // ===========================
@@ -402,7 +402,7 @@
     log('-> Statuswechsel angefordert: ' + key + ' / ' + id);
     send('updateStatus', { id: id });
     // Auswahl erst wieder dauerhaft umstellen, wenn Genesys den neuen Status zurueckmeldet.
-    setTimeout(function () { if (ui.presence !== key) { selEl.value = ui.presence || ''; log('Statuswechsel noch nicht von Genesys bestaetigt'); } }, 250);
+    setTimeout(function () { if (ui.presence !== key) { selEl.value = ui.presence || ''; log('Statuswechsel noch nicht von Genesys bestaetigt'); } }, 300);
   });
   function renderState() {
     var cls = 'dot', title, sub = '';
@@ -558,11 +558,13 @@
     if (!id) return;
     if (category === 'deallocate') {
       clearTimeout(acwCloseTimer);
+      clearTimeout(acwOnQueueTimer);
       acwCloseTimer = setTimeout(function () {
         delete calls[id];
         if (state.interactionId === id) state.interactionId = null;
         acwPending = false;
         acwOpen = false;
+        acwRecovered = false;
         try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
         setMode('idle', '');
       }, 1500);
@@ -630,13 +632,17 @@
           renderState();
         } else if (d.category === 'routingStatus') {
           ui.routing = String(typeof d.data === 'string' ? d.data : (d.data && d.data.status) || '').toUpperCase();
-          // Nach ACW ist ON_QUEUE/INTERACTING ein eindeutigeres Ende als ein verspaetetes deallocate.
-          if (acwPending && (ui.routing === 'ON_QUEUE' || ui.routing === 'INTERACTING')) {
-            acwPending = false;
-            acwOpen = false;
-            clearTimeout(acwCloseTimer);
-            try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
-            if (ui.mode === 'acw') ui.mode = 'idle';
+          // Nach F5 kann ON_QUEUE bereits beim Wiederverbinden gemeldet werden, obwohl ACW noch offen ist.
+          // Deshalb nur einen wiederhergestellten ACW-Zustand nach stabilen 2 Sekunden ON_QUEUE beenden.
+          clearTimeout(acwOnQueueTimer);
+          if (acwPending && acwRecovered && ui.routing === 'ON_QUEUE') {
+            acwOnQueueTimer = setTimeout(function () {
+              if (acwPending && acwRecovered && ui.routing === 'ON_QUEUE') {
+                acwPending = false; acwOpen = false; acwRecovered = false;
+                try { sessionStorage.removeItem('ctiAcwPending'); } catch (e) {}
+                setMode('idle', '');
+              }
+            }, 2000);
           }
           renderState();
           updateAcwBox();
@@ -716,9 +722,12 @@
   var utilityOpenDuringCall = false;
   var acwPending = false;
   var acwCloseTimer = null;
+  var acwOnQueueTimer = null;
+  var acwRecovered = false;
   try {
     var savedAcw = JSON.parse(sessionStorage.getItem('ctiAcwPending') || 'null');
     if (savedAcw && savedAcw.id) {
+      acwRecovered = true;
       acwPending = true; acwOpen = true;
       state.interactionId = savedAcw.id;
       ui.mode = 'acw'; ui.t1 = Number(savedAcw.started) || Date.now();
